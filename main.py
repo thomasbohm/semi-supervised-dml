@@ -20,23 +20,25 @@ logger = logging.getLogger('GNNReID.Training')
 
 def main():
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    print('Device:', device)
 
     # Train Dataset
     dataset_name = 'CARS'
-    root = f'./data/{dataset_name}'
+    root = f'/gdrive/MyDrive/DML/{dataset_name}'
+    #root = f'./data/{dataset_name}'
     num_classes = 98
     included_labels = range(0, num_classes)
     labeled_fraction = 0.5
     
-    transform = GL_orig_RE(is_train=True, RE=True)
-    dataset = SubsetDataset(root, included_labels, labeled_fraction, transform)
-    print('Dataset contains', len(dataset), 'samples')
+    transform_tr = GL_orig_RE(is_train=True, RE=True)
+    data_tr = SubsetDataset(root, included_labels, labeled_fraction, transform_tr)
+    print('Dataset contains', len(data_tr), 'samples')
 
     # Train DataLoader
     batch_size = 32
     num_workers = 1
     
-    dl_tr = DataLoader(dataset,
+    dl_tr = DataLoader(data_tr,
                        batch_size=batch_size,
                        shuffle=True,
                        num_workers=num_workers,
@@ -79,10 +81,18 @@ def main():
             break
 
 
+    transform_ev = GL_orig_RE(is_train=False, RE=True)
+    data_ev = SubsetDataset(root, range(98, 197), 1.0, transform_ev)
+    dl_ev = DataLoader(data_ev,
+                       batch_size=batch_size,
+                       shuffle=False,
+                       num_workers=num_workers,
+                       pin_memory=True)
+
     with torch.no_grad():
         logger.info('EVALUATION')
         filename = f'{dataset_name}_{time.time()}'
-        mAP, top = evaluator.evaluate(model, dl_tr, dataroot='CARS', nb_classes=num_classes)         
+        mAP, top = evaluator.evaluate(model, dl_ev, dataroot='CARS', nb_classes=num_classes)         
         torch.save(model.state_dict(), osp.join('./results_nets', filename + '.pth'))
 
 
