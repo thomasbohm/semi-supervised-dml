@@ -1,0 +1,4 @@
+data/
+results_nets/
+.ipynb_checkpoints/
+__pycache__/
