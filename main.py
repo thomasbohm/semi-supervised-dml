@@ -3,7 +3,7 @@ import torch.nn as nn
 import logging
 import os.path as osp
 import time
-import sys
+import warnings
 
 from torch.utils.data import DataLoader
 
@@ -13,87 +13,151 @@ from evaluation.utils import Evaluator_DML
 from net.load_net import load_net
 from RAdam import RAdam
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-
-logger = logging.getLogger('GNNReID.Training')
+warnings.filterwarnings("ignore")
 
 
 def main():
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print('Device:', device)
 
-    # Train Dataset
+    logger = logging.getLogger('main')
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter('%(asctime)s:%(name)s: %(message)s')
+
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    fh = logging.FileHandler(f'./results/cars_main_{time.time():.2f}.log')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
+    
+    # Dataset
     dataset_name = 'CARS'
-    root = f'/gdrive/MyDrive/DML/{dataset_name}'
-    #root = f'./data/{dataset_name}'
-    num_classes = 98
-    included_labels = range(0, num_classes)
+    #root = f'/gdrive/MyDrive/DML/{dataset_name}'
+    root = f'./data/{dataset_name}'
+    train_classes = 98
     labeled_fraction = 0.5
     
-    transform_tr = GL_orig_RE(is_train=True, RE=True)
-    data_tr = SubsetDataset(root, included_labels, labeled_fraction, transform_tr)
-    print('Dataset contains', len(data_tr), 'samples')
-
-    # Train DataLoader
+    # DataLoader
     batch_size = 32
-    num_workers = 1
-    
-    dl_tr = DataLoader(data_tr,
-                       batch_size=batch_size,
-                       shuffle=True,
-                       num_workers=num_workers,
-                       drop_last=True,
-                       pin_memory=True)
-    
-    model, embed_size = load_net(num_classes=num_classes, pretrained_path='no', red=1)
-    model = model.to(device)
+    num_workers = 4
 
     # Optimizer
     lr = 0.0001
     weight_decay = 0.000006
-    optimizer = RAdam(model.parameters(), lr=lr, weight_decay=weight_decay)
-
-    loss_fn = nn.CrossEntropyLoss()
-    evaluator = Evaluator_DML(dev=device)
 
     # Training
-    epochs = 3
+    epochs = 50
+
+    dl_tr, dl_ev = get_dataloaders(
+        root,
+        train_classes,
+        labeled_fraction,
+        batch_size,
+        num_workers
+    )
+    
+    model, embed_size = load_net(num_classes=train_classes, pretrained_path='no', red=16) # 4=512, 8=256
+    model = model.to(device)
+    print('Embedding size:', embed_size)
+
+    optimizer = RAdam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    loss_fn = nn.CrossEntropyLoss()
+    evaluator = Evaluator_DML(device=device)
+
     start = time.time()
+    scores = []
+    best_recall_at_1 = 0
+    best_filename = ''
+
+    logger.info(f'TRAINING WITH {labeled_fraction * 100}% OF DATA')
     for epoch in range(1, epochs + 1):
-        logger.info(f'EPOCH {epoch}/{epochs}: {time.time() - start}')
-        start = time.time()
+        logger.info(f'EPOCH {epoch}/{epochs}')
 
         model.train()
+        iter = 1
         for x, y in dl_tr:
+            logger.info(f'ITER {iter}/{len(dl_tr) + 1}')
+            iter += 1
             x, y = x.to(device), y.to(device)
 
             optimizer.zero_grad()
             
-            preds, fc7 = model(x)
+            preds, embeddings = model(x)
             loss = loss_fn(preds, y)
             
             if torch.isnan(loss):
-                print("We have NaN numbers, closing\n\n\n")
+                logger.error("We have NaN numbers, closing\n\n\n")
                 return 0.0, model
 
             loss.backward()
             optimizer.step()
-            break
+                    
+        with torch.no_grad():
+            logger.info(f'Evaluate epoch {epoch}')
+            filename = f'{dataset_name}_train_{time.time()}.pth'
+            nmi, recalls = evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)         
+            logger.info(f'NMI {nmi:.2f} | RECALLS {recalls}')
+
+            scores.append((epoch, nmi, recalls))
+
+            if recalls[0] > best_recall_at_1:
+                best_recall_at_1 = recalls[0]
+                best_filename = filename
+                torch.save(model.state_dict(), osp.join('./results_nets', filename))
 
 
-    transform_ev = GL_orig_RE(is_train=False, RE=True)
-    data_ev = SubsetDataset(root, range(98, 197), 1.0, transform_ev)
-    dl_ev = DataLoader(data_ev,
-                       batch_size=batch_size,
-                       shuffle=False,
-                       num_workers=num_workers,
-                       pin_memory=True)
+        logger.info(f'epoch took {time.time() - start:.2d}s')
+        start = time.time()
 
+    # Evaluation
     with torch.no_grad():
-        logger.info('EVALUATION')
-        filename = f'{dataset_name}_{time.time()}'
-        mAP, top = evaluator.evaluate(model, dl_ev, dataroot='CARS', nb_classes=num_classes)         
-        torch.save(model.state_dict(), osp.join('./results_nets', filename + '.pth'))
+        logger.info('FINAL EVALUATION')
+        model.load_state_dict(torch.load(osp.join('./results_nets', best_filename)))
+        
+        filename = f'{dataset_name}_test_{time.time()}.pth'
+        nmi, recalls = evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)         
+        logger.info(f'NMI: {nmi}')
+        logger.info(f'Recalls: {recalls}')
+        torch.save(model.state_dict(), osp.join('./results_nets', filename))
+
+    logger.info('ALL SCORES:')
+    for epoch, nmi, recalls in scores:
+        logger.info(f'Epoch {epoch}: NMI {nmi} | RECALLS {recalls}')
+    
+    logger.info('EXIT')
+
+
+def get_dataloaders(root, train_classes, labeled_fraction, batch_size, num_workers):
+    transform_tr = GL_orig_RE(is_train=True, RE=True)
+    data_tr = SubsetDataset(root, range(0, train_classes), labeled_fraction, transform_tr)
+    print('Train dataset contains', len(data_tr), 'samples')
+
+    dl_tr = DataLoader(
+        data_tr,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        drop_last=True,
+        pin_memory=True
+    )
+    
+    transform_ev = GL_orig_RE(is_train=False, RE=True)
+    data_ev = SubsetDataset(root, range(train_classes, 2 * train_classes + 1), 1.0, transform_ev)
+    print('Evaluation dataset contains', len(data_ev), 'samples')
+
+    dl_ev = DataLoader(
+        data_ev,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True
+    )
+                       
+    return dl_tr, dl_ev
 
 
 if __name__ == '__main__':
