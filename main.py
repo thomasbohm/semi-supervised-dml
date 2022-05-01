@@ -21,6 +21,11 @@ def main():
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print('Device:', device)
 
+    if not osp.isdir('./results_nets'):
+        os.makedirs('./results_nets')
+    if not osp.isdir('./results'):
+        os.makedirs('./results')
+
     logger = logging.getLogger('main')
     logger.setLevel(logging.INFO)
 
@@ -34,11 +39,11 @@ def main():
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
-    
+    ### PARAMS ###
     # Dataset
     dataset_name = 'CARS'
-    #root = f'/gdrive/MyDrive/DML/{dataset_name}'
-    root = f'./data/{dataset_name}'
+    root = f'/gdrive/MyDrive/DML/{dataset_name}'
+    #root = f'./data/{dataset_name}'
     train_classes = 98
     labeled_fraction = 0.5
     
@@ -51,7 +56,8 @@ def main():
     weight_decay = 0.000006
 
     # Training
-    epochs = 50
+    epochs = 20
+    ##############
 
     dl_tr, dl_ev = get_dataloaders(
         root,
@@ -73,10 +79,6 @@ def main():
     scores = []
     best_recall_at_1 = 0
     best_filename = ''
-    if not osp.isdir('./results_nets'):
-        os.makedirs('./results_nets')
-    if not osp.isdir('./results'):
-        os.makedirs('./results')
 
     logger.info(f'TRAINING WITH {labeled_fraction * 100}% OF DATA')
     for epoch in range(1, epochs + 1):
@@ -104,9 +106,7 @@ def main():
         with torch.no_grad():
             logger.info(f'Evaluate epoch {epoch}')
             filename = f'{dataset_name}_train_{time.time()}.pth'
-            nmi, recalls = evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)         
-            logger.info(f'NMI {nmi:.2f} | RECALLS {recalls}')
-
+            nmi, recalls = evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)
             scores.append((epoch, nmi, recalls))
 
             if recalls[0] > best_recall_at_1:
@@ -115,7 +115,7 @@ def main():
                 torch.save(model.state_dict(), osp.join('./results_nets', filename))
 
 
-        logger.info(f'epoch took {time.time() - start:.2d}s')
+        logger.info(f'epoch took {time.time() - start:.2f}s')
         start = time.time()
 
     # Evaluation
@@ -123,17 +123,16 @@ def main():
         logger.info('FINAL EVALUATION')
         model.load_state_dict(torch.load(osp.join('./results_nets', best_filename)))
         
+        evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)
+        
         filename = f'{dataset_name}_test_{time.time()}.pth'
-        nmi, recalls = evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)         
-        logger.info(f'NMI: {nmi}')
-        logger.info(f'Recalls: {recalls}')
         torch.save(model.state_dict(), osp.join('./results_nets', filename))
 
-    logger.info('ALL SCORES:')
+    logger.info('ALL SCORES (EPOCH, NMI, RECALLS):')
     for epoch, nmi, recalls in scores:
-        logger.info(f'Epoch {epoch}: NMI {nmi} | RECALLS {recalls}')
+        logger.info(f'{epoch},{nmi},{recalls}')
     
-    logger.info('EXIT')
+    logger.info('DONE')
 
 
 def get_dataloaders(root, train_classes, labeled_fraction, batch_size, num_workers):
