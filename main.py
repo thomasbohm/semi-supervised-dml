@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import logging
 import os.path as osp
+import os
 import time
 import warnings
 
@@ -72,6 +73,10 @@ def main():
     scores = []
     best_recall_at_1 = 0
     best_filename = ''
+    if not osp.isdir('./results_nets'):
+        os.makedirs('./results_nets')
+    if not osp.isdir('./results'):
+        os.makedirs('./results')
 
     logger.info(f'TRAINING WITH {labeled_fraction * 100}% OF DATA')
     for epoch in range(1, epochs + 1):
