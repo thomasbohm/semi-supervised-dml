@@ -75,7 +75,6 @@ def main():
     loss_fn = nn.CrossEntropyLoss()
     evaluator = Evaluator_DML(device=device)
 
-    start = time.time()
     scores = []
     best_recall_at_1 = 0
     best_filename = ''
@@ -83,6 +82,7 @@ def main():
     logger.info(f'TRAINING WITH {labeled_fraction * 100}% OF DATA')
     for epoch in range(1, epochs + 1):
         logger.info(f'EPOCH {epoch}/{epochs}')
+        start = time.time()
 
         model.train()
         for x, y in dl_tr:
@@ -117,6 +117,7 @@ def main():
     with torch.no_grad():
         logger.info('FINAL EVALUATION')
         if best_filename != '':
+            logger.info(f'Loading {best_filename}')
             model.load_state_dict(torch.load(osp.join('./results_nets', best_filename)))
         
         evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)
