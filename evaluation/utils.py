@@ -71,7 +71,7 @@ class Evaluator_DML():
         with torch.no_grad():
             for X, Y in dataloader:
                 X = X.to(self.dev)
-                _, fc7 = model(X, val=True)
+                _, fc7 = model(X, output_option='plain', val=True)
                 
                 fc7s.append(fc7)
                 Ys.append(Y)

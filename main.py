@@ -93,7 +93,7 @@ def main():
 
             optimizer.zero_grad()
             
-            preds, embeddings = model(x)
+            preds, embeddings = model(x, output_option='plain')
             loss = loss_fn(preds, y)
             
             if torch.isnan(loss):
