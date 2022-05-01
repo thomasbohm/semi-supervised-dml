@@ -85,10 +85,7 @@ def main():
         logger.info(f'EPOCH {epoch}/{epochs}')
 
         model.train()
-        iter = 1
         for x, y in dl_tr:
-            logger.info(f'ITER {iter}/{len(dl_tr) + 1}')
-            iter += 1
             x, y = x.to(device), y.to(device)
 
             optimizer.zero_grad()
@@ -104,7 +101,6 @@ def main():
             optimizer.step()
                     
         with torch.no_grad():
-            logger.info(f'Evaluate epoch {epoch}')
             filename = f'{dataset_name}_train_{time.time()}.pth'
             nmi, recalls = evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)
             scores.append((epoch, nmi, recalls))
@@ -114,25 +110,23 @@ def main():
                 best_filename = filename
                 torch.save(model.state_dict(), osp.join('./results_nets', filename))
 
-
         logger.info(f'epoch took {time.time() - start:.2f}s')
         start = time.time()
 
     # Evaluation
     with torch.no_grad():
         logger.info('FINAL EVALUATION')
-        model.load_state_dict(torch.load(osp.join('./results_nets', best_filename)))
+        if best_filename != '':
+            model.load_state_dict(torch.load(osp.join('./results_nets', best_filename)))
         
         evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)
         
         filename = f'{dataset_name}_test_{time.time()}.pth'
         torch.save(model.state_dict(), osp.join('./results_nets', filename))
 
-    logger.info('ALL SCORES (EPOCH, NMI, RECALLS):')
+    logger.info('ALL TRAINING SCORES (EPOCH, NMI, RECALLS):')
     for epoch, nmi, recalls in scores:
-        logger.info(f'{epoch},{nmi},{recalls}')
-    
-    logger.info('DONE')
+        logger.info(f'{epoch}, {100 * nmi:.3f}, {[f"{100 * r:.3f}" for r in recalls]}')
 
 
 def get_dataloaders(root, train_classes, labeled_fraction, batch_size, num_workers):

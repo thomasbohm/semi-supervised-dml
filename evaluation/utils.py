@@ -37,7 +37,7 @@ class Evaluator_DML():
         X, T, P = self.predict_batchwise(model, dataloader)
 
         end = time.time()
-        self.logger.info("Time for feature vector computation {}".format(end-start)) 
+        self.logger.info("Evaluation feature vector computation took {}".format(end-start)) 
         
         if  dataroot != 'in_shop'and dataroot != 'sop':
             # calculate NMI with kmeans clustering
@@ -65,7 +65,7 @@ class Evaluator_DML():
 
     # just looking at this gives me AIDS, fix it fool!
     def predict_batchwise(self, model, dataloader):
-        self.logger.info("Evaluate normal")
+        # self.logger.info("Evaluate normal")
         paths = []
         fc7s, Ys = list(), list()
         with torch.no_grad():
