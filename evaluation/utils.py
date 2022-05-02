@@ -24,7 +24,7 @@ class Evaluator_DML():
         ch.setFormatter(formatter)
         logger.addHandler(ch)
 
-        fh = logging.FileHandler(f'./results/cars_eval_{time.time():.2f}.log')
+        fh = logging.FileHandler('./results/cars_eval_' + str(time.time()) + '.log')
         fh.setFormatter(formatter)
         logger.addHandler(fh)
         self.logger = logger

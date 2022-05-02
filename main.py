@@ -41,7 +41,7 @@ def main(config_path):
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
-    fh = logging.FileHandler(f'./results/cars_main_{time.time():.2f}.log')
+    fh = logging.FileHandler('./results/cars_main_' + str(time.time()) + '.log')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
