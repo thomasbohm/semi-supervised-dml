@@ -5,8 +5,11 @@ import os.path as osp
 import os
 import time
 import warnings
+import argparse
+import yaml
 
 from torch.utils.data import DataLoader
+from datetime import datetime
 
 from dataset.SubsetDataset import SubsetDataset
 from dataset.utils import GL_orig_RE
@@ -17,9 +20,12 @@ from RAdam import RAdam
 warnings.filterwarnings("ignore")
 
 
-def main():
+def main(config_path):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print('Device:', device)
+
+    with open(config_path, 'r') as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
 
     if not osp.isdir('./results_nets'):
         os.makedirs('./results_nets')
@@ -35,17 +41,17 @@ def main():
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
-    fh = logging.FileHandler(f'./results/cars_main_{time.time():.2f}.log')
+    fh = logging.FileHandler(f'./results/cars_main_{str(datetime.now()).replace(" ", "-")}.log')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
     ### PARAMS ###
     # Dataset
-    dataset_name = 'CARS'
-    root = f'/gdrive/MyDrive/DML/{dataset_name}'
-    #root = f'./data/{dataset_name}'
-    train_classes = 98
-    labeled_fraction = 0.5
+    # root = f'/gdrive/MyDrive/DML/CARS'
+    root = config['dataset']['path']
+    dataset_name = config['dataset']['name']
+    train_classes = config['dataset']['train_classes']
+    labeled_fraction = config['dataset']['labeled_fraction']
     
     # DataLoader
     batch_size = 32
@@ -56,7 +62,7 @@ def main():
     weight_decay = 0.000006
 
     # Training
-    epochs = 20
+    epochs = config['training']['epochs']
     ##############
 
     dl_tr, dl_ev = get_dataloaders(
@@ -67,7 +73,7 @@ def main():
         num_workers
     )
     
-    model, embed_size = load_net(num_classes=train_classes, pretrained_path='no', red=16) # 4=512, 8=256
+    model, embed_size = load_net(num_classes=train_classes, pretrained_path='no', red=4) # 4=512, 8=256
     model = model.to(device)
     print('Embedding size:', embed_size)
 
@@ -160,4 +166,8 @@ def get_dataloaders(root, train_classes, labeled_fraction, batch_size, num_worke
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='DML Baseline')
+    parser.add_argument('--config_path', type=str, default='config/cars.yaml', help='Path to config file')
+    args = parser.parse_args()
+    
+    main(args.config_path)

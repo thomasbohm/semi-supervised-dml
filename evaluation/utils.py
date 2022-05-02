@@ -8,6 +8,8 @@ import sklearn.metrics.cluster
 import time
 import tqdm
 
+from datetime import datetime
+
 class Evaluator_DML():
     def __init__(self, cat=0, device='cpu'):
         self.cat = cat
@@ -22,7 +24,7 @@ class Evaluator_DML():
         ch.setFormatter(formatter)
         logger.addHandler(ch)
 
-        fh = logging.FileHandler(f'./results/cars_eval_{time.time():.2f}.log')
+        fh = logging.FileHandler(f'./results/cars_eval_{str(datetime.now()).replace(" ", "-")}.log')
         fh.setFormatter(formatter)
         logger.addHandler(fh)
         self.logger = logger
@@ -36,10 +38,9 @@ class Evaluator_DML():
         # calculate embeddings with model, also get labels (non-batch-wise)
         X, T, P = self.predict_batchwise(model, dataloader)
 
-        end = time.time()
-        self.logger.info("Evaluation feature vector computation took {}".format(end-start)) 
+        self.logger.info(f"Feature vector computation took {time.time() - start:.2f}") 
         
-        if  dataroot != 'in_shop'and dataroot != 'sop':
+        if dataroot != 'in_shop' and dataroot != 'sop':
             # calculate NMI with kmeans clustering
             nmi = calc_normalized_mutual_information(T, cluster_by_kmeans(X, num_classes))
             self.logger.info("NMI: {:.3f}".format(nmi * 100))
