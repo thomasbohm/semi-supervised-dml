@@ -60,7 +60,7 @@ class Evaluator_DML():
         for k in which_nearest_neighbors:
             r_at_k = calc_recall_at_k(T, Y, k)
             recall.append(r_at_k)
-            self.logger.info("R@{} : {:.3f}".format(k, 100 * r_at_k))
+            self.logger.info("R@{}: {:.3f}".format(k, 100 * r_at_k))
 
         model.train(model_is_training)
         return nmi, recall
