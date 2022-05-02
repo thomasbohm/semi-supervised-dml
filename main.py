@@ -41,10 +41,6 @@ def main(config_path):
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
-    fh = logging.FileHandler('./results/cars_main_' + str(time.time()) + '.log')
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
-
     ### PARAMS ###
     # Dataset
     # root = f'/gdrive/MyDrive/DML/CARS'
@@ -79,7 +75,7 @@ def main(config_path):
 
     optimizer = RAdam(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fn = nn.CrossEntropyLoss()
-    evaluator = Evaluator_DML(device=device)
+    evaluator = Evaluator_DML(config, device)
 
     scores = []
     best_recall_at_1 = 0
@@ -101,7 +97,6 @@ def main(config_path):
             
             if torch.isnan(loss):
                 logger.error("We have NaN numbers, closing\n\n\n")
-                return 0.0, model
 
             loss.backward()
             optimizer.step()
@@ -121,19 +116,20 @@ def main(config_path):
 
     # Evaluation
     with torch.no_grad():
-        logger.info('FINAL EVALUATION')
+        evaluator.logger.info('TRAINING SCORES (EPOCH, NMI, RECALLS):')
+        for epoch, nmi, recalls in scores:
+            evaluator.logger.info('{}: {:.3f}, {:.3f}'.format(epoch, 100 * nmi, [100 * r for r in recalls]))
+
         if best_filename != '':
-            logger.info('Loading {}'.format(best_filename))
+            evaluator.logger.info('Using {}'.format(best_filename))
             model.load_state_dict(torch.load(osp.join('./results_nets', best_filename)))
         
+        evaluator.logger.info('FINAL TEST SCORES')
         evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)
         
         filename = '{}_test_{}.pth'.format(dataset_name, time.time())
         torch.save(model.state_dict(), osp.join('./results_nets', filename))
-
-    logger.info('ALL TRAINING SCORES (EPOCH, NMI, RECALLS):')
-    for epoch, nmi, recalls in scores:
-        logger.info('{}, {:.3f}, {:.3f}'.format(epoch, 100 * nmi, [100 * r for r in recalls]))
+        evaluator.logger.info('Saved final model "{}"'.format(best_filename))
 
 
 def get_dataloaders(root, train_classes, labeled_fraction, batch_size, num_workers):

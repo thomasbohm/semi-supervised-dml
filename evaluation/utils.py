@@ -8,12 +8,11 @@ import sklearn.metrics.cluster
 import time
 import tqdm
 
-from datetime import datetime
 
 class Evaluator_DML():
-    def __init__(self, cat=0, device='cpu'):
+    def __init__(self, config, device, cat=0):
         self.cat = cat
-        self.dev = device
+        self.device = device
 
         logger = logging.getLogger('eval')
         logger.setLevel(logging.INFO)
@@ -24,10 +23,17 @@ class Evaluator_DML():
         ch.setFormatter(formatter)
         logger.addHandler(ch)
 
-        fh = logging.FileHandler('./results/cars_eval_' + str(time.time()) + '.log')
+        fh = logging.FileHandler('./results/{}_eval_{}.log'.format(config['dataset']['name'], time.time()))
         fh.setFormatter(formatter)
+        
         logger.addHandler(fh)
         self.logger = logger
+        self.logger.info('PARAMS:')
+        self.logger.info('Dataset: {}'.format(config['dataset']['name']))
+        self.logger.info('Labeled: {}'.format(config['dataset']['labeled_fraction']))
+        self.logger.info('Epochs: {}'.format(config['training']['epochs']))
+        self.logger.info('{}'.format('-' * 10))
+
 
     def evaluate(self, model, dataloader, dataroot, num_classes):
         self.num_classes = num_classes
@@ -71,7 +77,7 @@ class Evaluator_DML():
         fc7s, Ys = list(), list()
         with torch.no_grad():
             for X, Y in dataloader:
-                X = X.to(self.dev)
+                X = X.to(self.device)
                 _, fc7 = model(X, output_option='plain', val=True)
                 
                 fc7s.append(fc7)
