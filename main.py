@@ -83,7 +83,7 @@ def main(config_path):
 
     logger.info('TRAINING WITH {}% OF DATA'.format(labeled_fraction * 100))
     for epoch in range(1, epochs + 1):
-        logger.info('EPOCH {}/{}'.format(epoch, epochs))
+        evaluator.logger.info('EPOCH {}/{}'.format(epoch, epochs))
         start = time.time()
 
         model.train()
@@ -100,7 +100,8 @@ def main(config_path):
 
             loss.backward()
             optimizer.step()
-                    
+
+        eval_start = time.time()
         with torch.no_grad():
             filename = '{}_train_{}.pth'.format(dataset_name, time.time())
             nmi, recalls = evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)
@@ -110,7 +111,7 @@ def main(config_path):
                 best_recall_at_1 = recalls[0]
                 best_filename = filename
                 torch.save(model.state_dict(), osp.join('./results_nets', filename))
-
+        logger.info('Evaluation took {:.2f}'.format(time.time() - eval_start))
         logger.info('Epoch took {:.2f}s'.format(time.time() - start))
         start = time.time()
 
@@ -118,7 +119,7 @@ def main(config_path):
     with torch.no_grad():
         evaluator.logger.info('TRAINING SCORES (EPOCH, NMI, RECALLS):')
         for epoch, nmi, recalls in scores:
-            evaluator.logger.info('{}: {:.3f}, {:.3f}'.format(epoch, 100 * nmi, [100 * r for r in recalls]))
+            evaluator.logger.info('{}: {:.3f}, {}'.format(epoch, 100 * nmi, ['{:.3f}'.format(100 * r) for r in recalls]))
 
         if best_filename != '':
             evaluator.logger.info('Using {}'.format(best_filename))
