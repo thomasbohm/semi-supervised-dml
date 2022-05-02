@@ -14,20 +14,17 @@ class Evaluator_DML():
         self.cat = cat
         self.device = device
 
-        logger = logging.getLogger('eval')
-        logger.setLevel(logging.INFO)
+        self.logger = logging.getLogger('eval')
+        self.logger.setLevel(logging.INFO)
         
         formatter = logging.Formatter('%(asctime)s:%(name)s: %(message)s')
-
         ch = logging.StreamHandler()
-        ch.setFormatter(formatter)
-        logger.addHandler(ch)
-
         fh = logging.FileHandler('./results/{}_eval_{}.log'.format(config['dataset']['name'], time.time()))
+        ch.setFormatter(formatter)
         fh.setFormatter(formatter)
-        
-        logger.addHandler(fh)
-        self.logger = logger
+        self.logger.addHandler(ch)
+        self.logger.addHandler(fh)
+
         self.logger.info('PARAMS:')
         self.logger.info('Dataset: {}'.format(config['dataset']['name']))
         self.logger.info('Labeled: {}'.format(config['dataset']['labeled_fraction']))

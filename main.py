@@ -43,8 +43,8 @@ def main(config_path):
 
     ### PARAMS ###
     # Dataset
-    # root = f'/gdrive/MyDrive/DML/CARS'
-    root = config['dataset']['path']
+    # dataset_path = f'/gdrive/MyDrive/DML/CARS'
+    dataset_path = config['dataset']['path']
     dataset_name = config['dataset']['name']
     train_classes = config['dataset']['train_classes']
     labeled_fraction = config['dataset']['labeled_fraction']
@@ -62,14 +62,14 @@ def main(config_path):
     ##############
 
     dl_tr, dl_ev = get_dataloaders(
-        root,
+        dataset_path,
         train_classes,
         labeled_fraction,
         batch_size,
         num_workers
     )
     
-    model, embed_size = load_net(num_classes=train_classes, pretrained_path='no', red=4) # 4=512, 8=256
+    model, embed_size = load_net(num_classes=train_classes, pretrained_path='no', red=4) # 4==512, 8==256
     model = model.to(device)
     print('Embedding size:', embed_size)
 
@@ -115,7 +115,7 @@ def main(config_path):
         logger.info('Epoch took {:.2f}s'.format(time.time() - start))
         start = time.time()
 
-    # Evaluation
+    # Final Evaluation
     with torch.no_grad():
         evaluator.logger.info('TRAINING SCORES (EPOCH, NMI, RECALLS):')
         for epoch, nmi, recalls in scores:
