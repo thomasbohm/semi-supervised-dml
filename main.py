@@ -130,7 +130,7 @@ def main(config_path):
         
         filename = '{}_test_{}.pth'.format(dataset_name, time.time())
         torch.save(model.state_dict(), osp.join('./results_nets', filename))
-        evaluator.logger.info('Saved final model "{}"'.format(best_filename))
+        evaluator.logger.info('Saved final model "{}"'.format(filename))
 
 
 def get_dataloaders(root, train_classes, labeled_fraction, batch_size, num_workers):
