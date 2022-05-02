@@ -38,7 +38,7 @@ class Evaluator_DML():
         # calculate embeddings with model, also get labels (non-batch-wise)
         X, T, P = self.predict_batchwise(model, dataloader)
 
-        self.logger.info(f"Feature vector computation took {time.time() - start:.2f}") 
+        self.logger.info('Feature vector computation took {:.2f}'.format(time.time() - start)) 
         
         if dataroot != 'in_shop' and dataroot != 'sop':
             # calculate NMI with kmeans clustering

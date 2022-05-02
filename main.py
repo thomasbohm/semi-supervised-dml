@@ -85,9 +85,9 @@ def main(config_path):
     best_recall_at_1 = 0
     best_filename = ''
 
-    logger.info(f'TRAINING WITH {labeled_fraction * 100}% OF DATA')
+    logger.info('TRAINING WITH {}% OF DATA'.format(labeled_fraction * 100))
     for epoch in range(1, epochs + 1):
-        logger.info(f'EPOCH {epoch}/{epochs}')
+        logger.info('EPOCH {}/{}'.format(epoch, epochs))
         start = time.time()
 
         model.train()
@@ -107,7 +107,7 @@ def main(config_path):
             optimizer.step()
                     
         with torch.no_grad():
-            filename = f'{dataset_name}_train_{time.time()}.pth'
+            filename = '{}_train_{}.pth'.format(dataset_name, time.time())
             nmi, recalls = evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)
             scores.append((epoch, nmi, recalls))
 
@@ -116,24 +116,24 @@ def main(config_path):
                 best_filename = filename
                 torch.save(model.state_dict(), osp.join('./results_nets', filename))
 
-        logger.info(f'epoch took {time.time() - start:.2f}s')
+        logger.info('Epoch took {:.2f}s'.format(time.time() - start))
         start = time.time()
 
     # Evaluation
     with torch.no_grad():
         logger.info('FINAL EVALUATION')
         if best_filename != '':
-            logger.info(f'Loading {best_filename}')
+            logger.info('Loading {}'.format(best_filename))
             model.load_state_dict(torch.load(osp.join('./results_nets', best_filename)))
         
         evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)
         
-        filename = f'{dataset_name}_test_{time.time()}.pth'
+        filename = '{}_test_{}.pth'.format(dataset_name, time.time())
         torch.save(model.state_dict(), osp.join('./results_nets', filename))
 
     logger.info('ALL TRAINING SCORES (EPOCH, NMI, RECALLS):')
     for epoch, nmi, recalls in scores:
-        logger.info(f'{epoch}, {100 * nmi:.3f}, {[f"{100 * r:.3f}" for r in recalls]}')
+        logger.info('{}, {:.3f}, {:.3f}'.format(epoch, 100 * nmi, [100 * r for r in recalls]))
 
 
 def get_dataloaders(root, train_classes, labeled_fraction, batch_size, num_workers):
