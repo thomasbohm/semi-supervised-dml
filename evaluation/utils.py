@@ -41,7 +41,7 @@ class Evaluator_DML():
         # calculate embeddings with model, also get labels (non-batch-wise)
         X, T, P = self.predict_batchwise(model, dataloader)
         
-        if dataroot != 'in_shop' and dataroot != 'sop':
+        if dataroot != 'SOP':
             # calculate NMI with kmeans clustering
             nmi = calc_normalized_mutual_information(T, cluster_by_kmeans(X, num_classes))
             self.logger.info("NMI: {:.3f}".format(nmi * 100))
@@ -50,7 +50,7 @@ class Evaluator_DML():
         
         # Get Recall
         recall = []
-        if dataroot != 'sop':
+        if dataroot != 'SOP':
             Y, T = assign_by_euclidian_at_k(X, T, 8)
             which_nearest_neighbors = [1, 2, 4, 8]
         else:

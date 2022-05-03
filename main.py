@@ -54,8 +54,8 @@ def main(config_path):
     num_workers = 4
 
     # Optimizer
-    lr = 0.0001
-    weight_decay = 0.000006
+    lr = config['training']['lr']
+    weight_decay = config['training']['weight_decay']
 
     # Training
     epochs = config['training']['epochs']
@@ -63,6 +63,7 @@ def main(config_path):
 
     dl_tr, dl_ev = get_dataloaders(
         dataset_path,
+        dataset_name,
         train_classes,
         labeled_fraction,
         batch_size,
@@ -133,7 +134,7 @@ def main(config_path):
         evaluator.logger.info('Saved final model "{}"'.format(filename))
 
 
-def get_dataloaders(root, train_classes, labeled_fraction, batch_size, num_workers):
+def get_dataloaders(root, dataset_name, train_classes, labeled_fraction, batch_size, num_workers):
     transform_tr = GL_orig_RE(is_train=True, RE=True)
     data_tr = SubsetDataset(root, range(0, train_classes), labeled_fraction, transform_tr)
     print('Train dataset contains', len(data_tr), 'samples')
@@ -148,7 +149,12 @@ def get_dataloaders(root, train_classes, labeled_fraction, batch_size, num_worke
     )
     
     transform_ev = GL_orig_RE(is_train=False, RE=True)
-    data_ev = SubsetDataset(root, range(train_classes, 2 * train_classes + 1), 1.0, transform_ev)
+
+    all_classes = 2 * train_classes
+    if dataset_name == 'SOP':
+        all_classes -= 2
+        print('Num all classes: {}'.format(all_classes))
+    data_ev = SubsetDataset(root, range(train_classes, all_classes + 1), 1.0, transform_ev)
     print('Evaluation dataset contains', len(data_ev), 'samples')
 
     dl_ev = DataLoader(

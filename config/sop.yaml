@@ -1,7 +1,7 @@
 dataset:
-  path: "data/CARS"
-  name: "CARS"
-  train_classes: 98
+  path: "data/Stanford_Online_Products"
+  name: "SOP"
+  train_classes: 11318
   labeled_fraction: 0.1
 
 training:
