@@ -127,7 +127,7 @@ def main(config_path):
             model.load_state_dict(torch.load(osp.join('./results_nets', best_filename)))
         
         evaluator.logger.info('FINAL TEST SCORES')
-        evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes)
+        evaluator.evaluate(model, dl_ev, dataroot=dataset_name, num_classes=train_classes, final=True)
         
         filename = '{}_test_{}.pth'.format(dataset_name, time.time())
         torch.save(model.state_dict(), osp.join('./results_nets', filename))

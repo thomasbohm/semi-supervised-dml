@@ -32,7 +32,7 @@ class Evaluator_DML():
         self.logger.info('{}'.format('-' * 10))
 
 
-    def evaluate(self, model, dataloader, dataroot, num_classes):
+    def evaluate(self, model, dataloader, dataroot, num_classes, final=False):
         self.num_classes = num_classes
         start = time.time()
         model_is_training = model.training
@@ -41,7 +41,7 @@ class Evaluator_DML():
         # calculate embeddings with model, also get labels (non-batch-wise)
         X, T, P = self.predict_batchwise(model, dataloader)
         
-        if dataroot != 'SOP':
+        if dataroot != 'SOP' or final:
             # calculate NMI with kmeans clustering
             nmi = calc_normalized_mutual_information(T, cluster_by_kmeans(X, num_classes))
             self.logger.info("NMI: {:.3f}".format(nmi * 100))
