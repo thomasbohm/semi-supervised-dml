@@ -7,6 +7,5 @@
 #SBATCH --mail-type=ALL
 #SBATCH --output=/storage/slurm/boehmtho/sop-100-%j.out
 #SBATCH --error=/storage/slurm/boehmtho/sop-100-%j.out
-cd ~/semi-supervised-dml/
-source ~/semi-supervised-dml/dml_env/bin/activate
-srun python3 main.py --config_path="config/sop.yaml"
+source ./dml_env/bin/activate
+python3 main.py --config_path="config/sop.yaml"
