@@ -11,5 +11,6 @@
 source ./dml_env/bin/activate
 python3 benchmarker.py \
 --experiment_name test1 \
+--dataset~OVERRIDE~ {CUB200: {}}
 --models {trunk~OVERRIDE~: {resnet50: {pretrained: imagenet}}} \
 --num_epochs_train 2
