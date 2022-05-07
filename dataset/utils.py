@@ -12,7 +12,7 @@ def pil_loader(path):
 
 def get_list_of_inds(dataset):
     ddict = defaultdict(list)
-    for idx, label in enumerate(dataset.ys):
+    for idx, label in enumerate(dataset.targets):
         ddict[label].append(idx)
 
     list_of_indices_for_each_class = []
