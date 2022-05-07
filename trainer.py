@@ -46,7 +46,7 @@ class Trainer():
         best_hypers = self.config
         for run in range(1, num_runs + 1):
             if hyper_search:
-                self.logger.info('Search run: {}/{}'.format(run, num_runs + 1))
+                self.logger.info('Search run: {}/{}'.format(run, num_runs))
                 self.sample_hypers()
 
             self.logger.info("Config:\n{}".format(json.dumps(self.config, indent=4, sort_keys=True)))
