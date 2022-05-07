@@ -54,7 +54,6 @@ class Trainer():
             self.config['dataset']['name'],
             self.config['dataset']['train_classes'],
             self.config['dataset']['labeled_fraction'],
-            batch_size=32,
             num_workers=4
         )
 
@@ -122,7 +121,9 @@ class Trainer():
         return logger
     
 
-    def get_dataloaders(self, root, dataset_name, train_classes, labeled_fraction, batch_size, num_workers):
+    def get_dataloaders(self, root, dataset_name, train_classes, labeled_fraction, num_workers):
+        batch_size = self.config['training']['num_classes_iter'] * self.config['training']['num_elements_class']
+        self.logger.info('Batch size: {}'.format(batch_size))
         transform_tr = GL_orig_RE(is_train=True, RE=self.config['dataset']['random_erasing'])
         data_tr = SubsetDataset(root, range(0, train_classes), labeled_fraction, transform_tr)
         self.logger.info('Train dataset contains {} samples.'.format(len(data_tr)))
