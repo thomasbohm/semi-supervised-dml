@@ -24,7 +24,7 @@ class Trainer():
         self.logger = self.get_logger()
         self.filename = '{}_{}_train_{:.0f}.pth'.format(self.config['dataset']['name'],
                                                     self.config['dataset']['labeled_fraction'] * 100,
-                                                    str(time.time()))
+                                                    time.time())
 
         # self.results_dir = './results/{}'.format(config['dataset']['name'])
         # if not osp.isdir(self.results_dir):
