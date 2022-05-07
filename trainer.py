@@ -75,13 +75,13 @@ class Trainer():
                 best_recall_at_1 = recall_at_1
                 best_hypers = self.config
 
-                fn = '{}_{}_{:.3f}.pth'.format(self.config['dataset']['name'],
+                filename = '{}_{}_{:.3f}.pth'.format(self.config['dataset']['name'],
                                                self.config['dataset']['labeled_fraction'] * 100,
-                                               best_recall_at_1)
+                                               best_recall_at_1 * 100)
                 os.rename(osp.join(self.results_nets_dir, self.filename),
-                          osp.join(self.results_nets_dir_final, fn))        
+                          osp.join(self.results_nets_dir_final, filename))        
         if hyper_search:
-            self.logger.info('Best R@1: {:.3}'.format(best_recall_at_1))
+            self.logger.info('Best R@1: {:.3}'.format(best_recall_at_1 * 100))
             self.logger.info('Best Hyperparameters:\n{}'.format(json.dumps(best_hypers, indent=4, sort_keys=True)))
         self.logger.info('-' * 50)
 
@@ -200,8 +200,6 @@ class Trainer():
         }
         self.config['training'].update(config)
 
-        self.logger.info('Updated Hyperparameters:')
-        self.logger.info(self.config)
     
     def reduce_lr(self, model, optimizer):
         self.logger.info("Reducing learning rate:")
