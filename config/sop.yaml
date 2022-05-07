@@ -11,3 +11,4 @@ training:
   weight_decay: 0.000006
   num_classes_iter: 15
   num_elements_class: 6
+  temperatur: 0.11

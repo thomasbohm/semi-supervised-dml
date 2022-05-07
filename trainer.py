@@ -80,7 +80,7 @@ class Trainer():
                 optimizer.zero_grad()
                 
                 preds, embeddings = model(x, output_option='plain')
-                loss = loss_fn(preds, y)
+                loss = loss_fn(preds / self.config['training']['temperatur'], y)
                 
                 if torch.isnan(loss):
                     self.logger.error("We have NaN numbers, closing\n\n\n")
