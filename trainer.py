@@ -20,7 +20,7 @@ class Trainer():
         self.device = device
         self.evaluator = Evaluator_DML(self.device)
         self.logger = self.get_logger()
-        self.filename = config['dataset']['name'] + '_train_' + str(time.time() + '.pth')
+        self.filename = config['dataset']['name'] + '_train_' + str(time.time()) + '.pth'
 
         # self.results_dir = './results/{}'.format(config['dataset']['name'])
         # if not osp.isdir(self.results_dir):
