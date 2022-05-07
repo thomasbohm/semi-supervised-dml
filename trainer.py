@@ -70,7 +70,7 @@ class Trainer():
             self.evaluator.logger.info('EPOCH {}/{}'.format(epoch, self.config['training']['epochs']))
             start = time.time()
 
-            if epoch == 31 or epoch == 51:
+            if epoch == 2 or epoch == 51:
                 self.reduce_lr()
 
             model.train()
