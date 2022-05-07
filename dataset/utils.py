@@ -1,3 +1,4 @@
+from collections import defaultdict
 import math
 import random
 import PIL
@@ -7,6 +8,18 @@ def pil_loader(path):
     with open(path, 'rb') as f:
         img = PIL.Image.open(f)
         return img.convert('RGB')
+
+
+def get_list_of_inds(dataset):
+    ddict = defaultdict(list)
+    for idx, label in enumerate(dataset.ys):
+        ddict[label].append(idx)
+
+    list_of_indices_for_each_class = []
+    for key in ddict:
+        list_of_indices_for_each_class.append(ddict[key])
+    return list_of_indices_for_each_class
+
 
 def GL_orig_RE(sz_crop=[384, 128],
                mean=[0.485, 0.456, 0.406],

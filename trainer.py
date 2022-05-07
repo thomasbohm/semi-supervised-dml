@@ -7,11 +7,12 @@ import os.path as osp
 import random
 import json
 from torch.utils.data import DataLoader
+from dataset.combine_sampler import CombineSampler
 
 from net.load_net import load_net
 from evaluation.utils import Evaluator_DML
 from RAdam import RAdam
-from dataset.utils import GL_orig_RE
+from dataset.utils import GL_orig_RE, get_list_of_inds
 from dataset.SubsetDataset import SubsetDataset
 
 
@@ -21,7 +22,7 @@ class Trainer():
         self.device = device
         self.evaluator = Evaluator_DML(self.device)
         self.logger = self.get_logger()
-        self.filename = '{}_{}_train_{}.pth'.format(self.config['dataset']['name'],
+        self.filename = '{}_{}_train_{:.0f}.pth'.format(self.config['dataset']['name'],
                                                     self.config['dataset']['labeled_fraction'] * 100,
                                                     str(time.time()))
 
@@ -33,8 +34,7 @@ class Trainer():
         if not osp.isdir(self.results_nets_dir):
             os.makedirs(self.results_nets_dir)
 
-        self.logger.info('Config:')
-        self.logger.info('\n' + json.dumps(self.config, indent=4, sort_keys=True))
+        self.logger.info('Config:\n' + json.dumps(self.config, indent=4, sort_keys=True))
     
 
     def start(self):
@@ -127,10 +127,15 @@ class Trainer():
         data_tr = SubsetDataset(root, range(0, train_classes), labeled_fraction, transform_tr)
         self.logger.info('Train dataset contains {} samples.'.format(len(data_tr)))
 
+        sampler = CombineSampler(get_list_of_inds(data_tr),
+                                 self.config['training']['num_classes_iter'],
+                                 self.config['training']['num_elements_class'])
+
         dl_tr = DataLoader(
             data_tr,
             batch_size=batch_size,
-            shuffle=True,
+            shuffle=False,
+            sampler=sampler,
             num_workers=num_workers,
             drop_last=True,
             pin_memory=True
@@ -148,7 +153,7 @@ class Trainer():
             data_ev,
             batch_size=batch_size,
             shuffle=False,
-            num_workers=num_workers,
+            num_workers=1,
             pin_memory=True
         )
                         
