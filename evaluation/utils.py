@@ -10,26 +10,20 @@ import tqdm
 
 
 class Evaluator_DML():
-    def __init__(self, config, device, cat=0):
+    def __init__(self, device, cat=0):
         self.cat = cat
         self.device = device
 
-        self.logger = logging.getLogger('eval')
+        self.logger = logging.getLogger('Evaluator')
         self.logger.setLevel(logging.INFO)
         
         formatter = logging.Formatter('%(asctime)s:%(name)s: %(message)s')
         ch = logging.StreamHandler()
-        fh = logging.FileHandler('./results/{}_eval_{}.log'.format(config['dataset']['name'], time.time()))
+        # fh = logging.FileHandler('./results/{}_eval_{}.log'.format(config['dataset']['name'], time.time()))
         ch.setFormatter(formatter)
-        fh.setFormatter(formatter)
+        # fh.setFormatter(formatter)
         self.logger.addHandler(ch)
-        self.logger.addHandler(fh)
-
-        self.logger.info('PARAMS:')
-        self.logger.info('Dataset: {}'.format(config['dataset']['name']))
-        self.logger.info('Labeled: {}'.format(config['dataset']['labeled_fraction']))
-        self.logger.info('Epochs: {}'.format(config['training']['epochs']))
-        self.logger.info('{}'.format('-' * 10))
+        # self.logger.addHandler(fh)
 
 
     def evaluate(self, model, dataloader, dataroot, num_classes):

@@ -2,9 +2,9 @@ dataset:
   path: "data/CARS"
   name: "CARS"
   train_classes: 98
-  labeled_fraction: 0.1
+  labeled_fraction: 1.0
 
 training:
-  epochs: 20
+  epochs: 2
   lr: 0.0001
   weight_decay: 0.000006
