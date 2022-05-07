@@ -67,11 +67,11 @@ class Trainer():
 
         self.logger.info('TRAINING WITH {}% OF DATA'.format(self.config['dataset']['labeled_fraction'] * 100))
         for epoch in range(1, self.config['training']['epochs'] + 1):
-            self.evaluator.logger.info('EPOCH {}/{}'.format(epoch, self.config['training']['epochs']))
+            self.logger.info('EPOCH {}/{}'.format(epoch, self.config['training']['epochs']))
             start = time.time()
 
-            if epoch == 2 or epoch == 51:
-                self.reduce_lr()
+            if epoch == 31 or epoch == 51:
+                self.reduce_lr(model, optimizer)
 
             model.train()
             for x, y in dl_tr:
@@ -175,10 +175,10 @@ class Trainer():
         self.logger.info('Updated Hyperparameters:')
         self.logger.info(self.config)
     
-    def reduce_lr(self):
+    def reduce_lr(self, model, optimizer):
         self.logger.info("Reducing learning rate:")
-        self.model.load_state_dict(torch.load(osp.join(self.results_nets_dir, self.filename)))
-        for g in self.opt.param_groups:
+        model.load_state_dict(torch.load(osp.join(self.results_nets_dir, self.filename)))
+        for g in optimizer.param_groups:
             old_lr = g['lr']
             g['lr'] = old_lr / 10.
             self.logger.info('{} -> {}'.format(old_lr, g['lr']))
