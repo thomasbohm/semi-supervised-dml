@@ -1,3 +1,5 @@
+mode: "train"
+
 dataset:
   path: "data/Stanford_Online_Products"
   name: "SOP"

@@ -30,34 +30,60 @@ class Trainer():
         # if not osp.isdir(self.results_dir):
         #    os.makedirs(self.results_dir)
             
-        self.results_nets_dir = './results_nets/{}'.format(config['dataset']['name'])
+        self.results_nets_dir = './results_nets_train/{}'.format(config['dataset']['name'])
         if not osp.isdir(self.results_nets_dir):
             os.makedirs(self.results_nets_dir)
-
-        self.logger.info('Config:\n' + json.dumps(self.config, indent=4, sort_keys=True))
+        self.results_nets_dir_final = './results_nets/{}'.format(config['dataset']['name'])
+        if not osp.isdir(self.results_nets_dir_final):
+            os.makedirs(self.results_nets_dir_final)
     
 
     def start(self):
-        model, embed_size = load_net(num_classes=self.config['dataset']['train_classes'],
-                                     pretrained_path='no',
-                                     red=4)
-        model = model.to(self.device)
-        self.logger.info('Loaded model with embedding dim {}.'.format(embed_size))
+        hyper_search = self.config['mode'] == 'hyper'
+        num_runs = 30 if hyper_search else 1
 
-        optimizer = RAdam(model.parameters(),
-                          lr=self.config['training']['lr'],
-                          weight_decay=self.config['training']['weight_decay'])
-        loss_fn = nn.CrossEntropyLoss()
+        best_recall_at_1 = -1
+        best_hypers = self.config
+        for run in range(1, num_runs + 1):
+            if hyper_search:
+                self.logger.info('Search run: {}/{}'.format(run, num_runs + 1))
+                self.sample_hypers()
 
-        dl_tr, dl_ev = self.get_dataloaders(
-            self.config['dataset']['path'],
-            self.config['dataset']['name'],
-            self.config['dataset']['train_classes'],
-            self.config['dataset']['labeled_fraction'],
-            num_workers=4
-        )
+            self.logger.info("Config:\n{}".format(json.dumps(self.config, indent=4, sort_keys=True)))
 
-        self.execute(model, optimizer, loss_fn, dl_tr, dl_ev)
+            model, embed_size = load_net(num_classes=self.config['dataset']['train_classes'],
+                                        pretrained_path='no',
+                                        red=4)
+            model = model.to(self.device)
+            self.logger.info('Loaded model with embedding dim {}.'.format(embed_size))
+
+            optimizer = RAdam(model.parameters(),
+                            lr=self.config['training']['lr'],
+                            weight_decay=self.config['training']['weight_decay'])
+            loss_fn = nn.CrossEntropyLoss()
+
+            dl_tr, dl_ev = self.get_dataloaders(
+                self.config['dataset']['path'],
+                self.config['dataset']['name'],
+                self.config['dataset']['train_classes'],
+                self.config['dataset']['labeled_fraction'],
+                num_workers=4
+            )
+
+            recall_at_1 = self.execute(model, optimizer, loss_fn, dl_tr, dl_ev)
+            if recall_at_1 > best_recall_at_1:
+                best_recall_at_1 = recall_at_1
+                best_hypers = self.config
+
+                fn = '{}_{}_{:.3f}.pth'.format(self.config['dataset']['name'],
+                                               self.config['dataset']['labeled_fraction'] * 100,
+                                               best_recall_at_1)
+                os.rename(osp.join(self.results_nets_dir, self.filename),
+                          osp.join(self.results_nets_dir_final, fn))        
+        if hyper_search:
+            self.logger.info('Best R@1: {:.3}'.format(best_recall_at_1))
+            self.logger.info('Best Hyperparameters:\n{}'.format(json.dumps(best_hypers, indent=4, sort_keys=True)))
+        self.logger.info('-' * 50)
 
 
     def execute(self, model, optimizer, loss_fn, dl_tr, dl_ev):
@@ -109,6 +135,8 @@ class Trainer():
         for epoch, nmi, recalls in scores:
             self.evaluator.logger.info('{}: {:.3f}, {}'.format(epoch, 100 * nmi, ['{:.3f}'.format(100 * r) for r in recalls]))
         self.evaluator.logger.info('BEST R@1 IN EPOCH {}'.format(best_epoch))
+
+        return best_recall_at_1
 
     
     def get_logger(self):
@@ -165,10 +193,10 @@ class Trainer():
         config = {
             'lr': 10 ** random.uniform(-5, -3),
             'weight_decay': 10 ** random.uniform(-15, -6),
-            #'num_classes_iter': random.randint(6, 15),
-            #'num_elements_class': random.randint(3, 9),
-            #'temperatur': random.random(),
-            #'num_epochs': 40
+            'num_classes_iter': random.randint(6, 15),
+            'num_elements_class': random.randint(3, 9),
+            'temperatur': random.random(),
+            'epochs': 40
         }
         self.config['training'].update(config)
 

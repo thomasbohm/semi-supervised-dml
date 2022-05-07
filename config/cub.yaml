@@ -1,3 +1,5 @@
+mode: "train"
+
 dataset:
   path: "data/CUB"
   name: "CUB"
