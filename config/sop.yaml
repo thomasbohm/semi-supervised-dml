@@ -3,6 +3,7 @@ dataset:
   name: "SOP"
   train_classes: 11318
   labeled_fraction: 0.1
+  random_erasing: False
 
 training:
   epochs: 20

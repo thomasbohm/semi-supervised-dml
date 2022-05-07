@@ -5,6 +5,7 @@ import torch.nn as nn
 import os
 import os.path as osp
 import random
+import json
 from torch.utils.data import DataLoader
 
 from net.load_net import load_net
@@ -31,7 +32,7 @@ class Trainer():
             os.makedirs(self.results_nets_dir)
 
         self.logger.info('Config:')
-        self.logger.info(config)
+        self.logger.info('\n' + json.dumps(self.config, indent=4, sort_keys=True))
     
 
     def start(self):
@@ -120,7 +121,7 @@ class Trainer():
     
 
     def get_dataloaders(self, root, dataset_name, train_classes, labeled_fraction, batch_size, num_workers):
-        transform_tr = GL_orig_RE(is_train=True, RE=True)
+        transform_tr = GL_orig_RE(is_train=True, RE=self.config['dataset']['random_erasing'])
         data_tr = SubsetDataset(root, range(0, train_classes), labeled_fraction, transform_tr)
         self.logger.info('Train dataset contains {} samples.'.format(len(data_tr)))
 
@@ -133,12 +134,11 @@ class Trainer():
             pin_memory=True
         )
         
-        transform_ev = GL_orig_RE(is_train=False, RE=True)
-
         all_classes = 2 * train_classes
         if dataset_name == 'SOP':
             all_classes -= 2
 
+        transform_ev = GL_orig_RE(is_train=False, RE=self.config['dataset']['random_erasing'])
         data_ev = SubsetDataset(root, range(train_classes, all_classes + 1), 1.0, transform_ev)
         self.logger.info('Evaluation dataset contains {} samples.'.format(len(data_ev)))
 

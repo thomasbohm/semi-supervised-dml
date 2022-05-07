@@ -3,6 +3,7 @@ dataset:
   name: "CUB"
   train_classes: 100
   labeled_fraction: 0.1
+  random_erasing: False
 
 training:
   epochs: 20
