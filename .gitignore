@@ -1,6 +1,7 @@
 data/
 results/
 results_nets/
+results_nets_train/
 benchmark_datasets/
 benchmark_experiments/
 dml_env/
