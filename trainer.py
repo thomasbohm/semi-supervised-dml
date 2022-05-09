@@ -1,4 +1,3 @@
-from distutils.command.config import config
 import logging
 import time
 import torch
@@ -71,7 +70,7 @@ class Trainer():
                 num_workers=4
             )
 
-            if config['mode'] != 'test':
+            if self.config['mode'] != 'test':
                 recall_at_1 = self.execute(model, optimizer, loss_fn, dl_tr, dl_ev)
                 if recall_at_1 > best_recall_at_1:
                     best_recall_at_1 = recall_at_1
