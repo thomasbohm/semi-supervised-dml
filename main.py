@@ -1,6 +1,4 @@
 import torch
-import os.path as osp
-import os
 import warnings
 import argparse
 import yaml

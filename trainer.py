@@ -1,3 +1,4 @@
+from distutils.command.config import config
 import logging
 import time
 import torch
@@ -52,8 +53,8 @@ class Trainer():
             self.logger.info("Config:\n{}".format(json.dumps(self.config, indent=4, sort_keys=True)))
 
             model, embed_size = load_net(num_classes=self.config['dataset']['train_classes'],
-                                        pretrained_path='no',
-                                        red=4)
+                                         pretrained_path='no',
+                                         red=4)
             model = model.to(self.device)
             self.logger.info('Loaded model with embedding dim {}.'.format(embed_size))
 
@@ -70,16 +71,20 @@ class Trainer():
                 num_workers=4
             )
 
-            recall_at_1 = self.execute(model, optimizer, loss_fn, dl_tr, dl_ev)
-            if recall_at_1 > best_recall_at_1:
-                best_recall_at_1 = recall_at_1
-                best_hypers = self.config
+            if config['mode'] != 'test':
+                recall_at_1 = self.execute(model, optimizer, loss_fn, dl_tr, dl_ev)
+                if recall_at_1 > best_recall_at_1:
+                    best_recall_at_1 = recall_at_1
+                    best_hypers = self.config
 
-                filename = '{}_{}_{:.3f}.pth'.format(self.config['dataset']['name'],
-                                               self.config['dataset']['labeled_fraction'] * 100,
-                                               best_recall_at_1 * 100)
-                os.rename(osp.join(self.results_nets_dir, self.filename),
-                          osp.join(self.results_nets_dir_final, filename))        
+                    filename = '{}_{}_{:.3f}.pth'.format(self.config['dataset']['name'],
+                                                        self.config['dataset']['labeled_fraction'] * 100,
+                                                        best_recall_at_1 * 100)
+                    os.rename(osp.join(self.results_nets_dir, self.filename),
+                            osp.join(self.results_nets_dir_final, filename))
+            else:
+                self.evaluate(model, dl_ev)
+        
         if hyper_search:
             self.logger.info('Best R@1: {:.3}'.format(best_recall_at_1 * 100))
             self.logger.info('Best Hyperparameters:\n{}'.format(json.dumps(best_hypers, indent=4, sort_keys=True)))
@@ -139,6 +144,16 @@ class Trainer():
         return best_recall_at_1
 
     
+    def evaluate(self, model, dl_ev):
+        with torch.no_grad():
+            if self.config['model']['pretrained_path'] != 'no':
+                model.load_state_dict(torch.load(self.config['model']['pretrained_path']))
+            nmi, recalls = self.evaluator.evaluate(model,
+                                                   dl_ev,
+                                                   dataroot=self.config['dataset']['name'],
+                                                   num_classes=self.config['dataset']['train_classes'])
+            return nmi, recalls
+
     def get_logger(self):
         logger = logging.getLogger('Trainer')
         logger.setLevel(logging.INFO)

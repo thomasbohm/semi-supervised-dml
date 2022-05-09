@@ -1,5 +1,8 @@
 mode: "train"
 
+model:
+  pretrained_path: "no"
+
 dataset:
   path: "data/CUB"
   name: "CUB"

@@ -1,5 +1,8 @@
 mode: "hyper"
 
+model:
+  pretrained_path: "no"
+
 dataset:
   path: "data/CARS"
   name: "CARS"
