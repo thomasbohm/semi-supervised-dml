@@ -9,36 +9,34 @@ import json
 from torch.utils.data import DataLoader
 from dataset.combine_sampler import CombineSampler
 
-from net.load_net import load_net
-from evaluation.utils import Evaluator_DML
+from net.load_net import load_resnet50
+from evaluation.utils import Evaluator
 from RAdam import RAdam
 from dataset.utils import GL_orig_RE, get_list_of_inds
-from dataset.SubsetDataset import SubsetDataset
+from dataset.subset_dataset import SubsetDataset
 
 
 class Trainer():
-    def __init__(self, config, device):
+    def __init__(self, config):
         self.config = config
-        self.device = device
-        self.evaluator = Evaluator_DML(self.device)
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.evaluator = Evaluator(self.device)
         self.logger = self.get_logger()
         self.filename = '{}_{}_train_{:.0f}.pth'.format(self.config['dataset']['name'],
-                                                    self.config['dataset']['labeled_fraction'] * 100,
-                                                    time.time())
+                                                        self.config['dataset']['labeled_fraction'] * 100,
+                                                        time.time())
 
-        # self.results_dir = './results/{}'.format(config['dataset']['name'])
-        # if not osp.isdir(self.results_dir):
-        #    os.makedirs(self.results_dir)
-            
         self.results_nets_dir = './results_nets_train/{}'.format(config['dataset']['name'])
         if not osp.isdir(self.results_nets_dir):
             os.makedirs(self.results_nets_dir)
+
         self.results_nets_dir_final = './results_nets/{}'.format(config['dataset']['name'])
         if not osp.isdir(self.results_nets_dir_final):
             os.makedirs(self.results_nets_dir_final)
     
 
     def start(self):
+        self.logger.info('Device: {}'.format(self.device))
         hyper_search = self.config['mode'] == 'hyper'
         num_runs = 30 if hyper_search else 1
 
@@ -49,17 +47,17 @@ class Trainer():
                 self.logger.info('Search run: {}/{}'.format(run, num_runs))
                 self.sample_hypers()
 
-            self.logger.info("Config:\n{}".format(json.dumps(self.config, indent=4, sort_keys=True)))
+            self.logger.info("Config:\n{}".format(json.dumps(self.config, indent=4)))
 
-            model, embed_size = load_net(num_classes=self.config['dataset']['train_classes'],
-                                         pretrained_path='no',
-                                         red=4)
+            model, embed_size = load_resnet50(num_classes=self.config['dataset']['train_classes'],
+                                              pretrained_path=self.config['model']['pretrained_path'],
+                                              reduction=self.config['model']['reduction'])
             model = model.to(self.device)
             self.logger.info('Loaded model with embedding dim {}.'.format(embed_size))
 
             optimizer = RAdam(model.parameters(),
-                            lr=self.config['training']['lr'],
-                            weight_decay=self.config['training']['weight_decay'])
+                              lr=self.config['training']['lr'],
+                              weight_decay=self.config['training']['weight_decay'])
             loss_fn = nn.CrossEntropyLoss()
 
             dl_tr, dl_ev = self.get_dataloaders(
@@ -71,7 +69,7 @@ class Trainer():
             )
 
             if self.config['mode'] != 'test':
-                recall_at_1 = self.execute(model, optimizer, loss_fn, dl_tr, dl_ev)
+                recall_at_1 = self.train(model, optimizer, loss_fn, dl_tr, dl_ev)
                 if recall_at_1 > best_recall_at_1:
                     best_recall_at_1 = recall_at_1
                     best_hypers = self.config
@@ -90,7 +88,7 @@ class Trainer():
         self.logger.info('-' * 50)
 
 
-    def execute(self, model, optimizer, loss_fn, dl_tr, dl_ev):
+    def train(self, model, optimizer, loss_fn, dl_tr, dl_ev):
         scores = []
         best_epoch = -1
         best_recall_at_1 = 0
@@ -145,8 +143,6 @@ class Trainer():
     
     def evaluate(self, model, dl_ev):
         with torch.no_grad():
-            if self.config['model']['pretrained_path'] != 'no':
-                model.load_state_dict(torch.load(self.config['model']['pretrained_path']))
             nmi, recalls = self.evaluator.evaluate(model,
                                                    dl_ev,
                                                    dataroot=self.config['dataset']['name'],
@@ -166,6 +162,7 @@ class Trainer():
     def get_dataloaders(self, root, dataset_name, train_classes, labeled_fraction, num_workers):
         batch_size = self.config['training']['num_classes_iter'] * self.config['training']['num_elements_class']
         self.logger.info('Batch size: {}'.format(batch_size))
+        
         transform_tr = GL_orig_RE(is_train=True, RE=self.config['dataset']['random_erasing'])
         data_tr = SubsetDataset(root, range(0, train_classes), labeled_fraction, transform_tr)
         self.logger.info('Train dataset contains {} samples.'.format(len(data_tr)))
@@ -219,6 +216,5 @@ class Trainer():
         self.logger.info("Reducing learning rate:")
         model.load_state_dict(torch.load(osp.join(self.results_nets_dir, self.filename)))
         for g in optimizer.param_groups:
-            old_lr = g['lr']
-            g['lr'] = old_lr / 10.
-            self.logger.info('{} -> {}'.format(old_lr, g['lr']))
+            self.logger.info('{} -> {}'.format(g['lr'], g['lr'] / 10))
+            g['lr'] /= 10.

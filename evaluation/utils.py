@@ -9,7 +9,7 @@ import time
 import tqdm
 
 
-class Evaluator_DML():
+class Evaluator():
     def __init__(self, device, cat=0):
         self.cat = cat
         self.device = device
@@ -27,13 +27,11 @@ class Evaluator_DML():
 
 
     def evaluate(self, model, dataloader, dataroot, num_classes):
-        self.num_classes = num_classes
-        start = time.time()
         model_is_training = model.training
         model.eval()
         
         # calculate embeddings with model, also get labels (non-batch-wise)
-        X, T, P = self.predict_batchwise(model, dataloader)
+        X, T = self.predict_batchwise(model, dataloader)
         
         if dataroot != 'SOP':
             # calculate NMI with kmeans clustering
@@ -42,7 +40,7 @@ class Evaluator_DML():
         else:
             nmi = -1
         
-        recall = []
+        recalls = []
         if dataroot != 'SOP':
             Y, T = assign_by_euclidian_at_k(X, T, 8)
             which_nearest_neighbors = [1, 2, 4, 8]
@@ -52,17 +50,17 @@ class Evaluator_DML():
         
         for k in which_nearest_neighbors:
             r_at_k = calc_recall_at_k(T, Y, k)
-            recall.append(r_at_k)
+            recalls.append(r_at_k)
             self.logger.info("R@{}: {:.3f}".format(k, 100 * r_at_k))
 
         model.train(model_is_training)
-        return nmi, recall
+        return nmi, recalls
 
     # just looking at this gives me AIDS, fix it fool!
     def predict_batchwise(self, model, dataloader):
         # self.logger.info("Evaluate normal")
-        paths = []
-        fc7s, Ys = list(), list()
+        # paths = []
+        fc7s, Ys = [], []
         with torch.no_grad():
             for X, Y in dataloader:
                 X = X.to(self.device)
@@ -74,9 +72,9 @@ class Evaluator_DML():
                 
         fc7 = torch.cat([f.unsqueeze(0).cpu() for b in fc7s for f in b], 0)
         Y = torch.cat([y.unsqueeze(0).cpu() for b in Ys for y in b], 0)
-        paths = [p for b in paths for p in b]
+        # paths = [p for b in paths for p in b]
         
-        return torch.squeeze(fc7), torch.squeeze(Y), paths
+        return torch.squeeze(fc7), torch.squeeze(Y) #, paths
 
     def get_resnet_performance(self, x, ys):
         cluster = sklearn.cluster.KMeans(self.nb_classes).fit(x).labels_

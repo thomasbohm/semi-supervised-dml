@@ -2,6 +2,7 @@ mode: "hyper"
 
 model:
   pretrained_path: "no"
+  reduction: 4
 
 dataset:
   path: "data/CARS"

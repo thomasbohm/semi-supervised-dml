@@ -1,4 +1,3 @@
-import torch
 import warnings
 import argparse
 import yaml
@@ -9,13 +8,10 @@ warnings.filterwarnings("ignore")
 
 
 def main(config_path):
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    print('Device:', device)
-
     with open(config_path, 'r') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     
-    trainer = Trainer(config, device)
+    trainer = Trainer(config)
     trainer.start()
 
 
