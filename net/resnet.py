@@ -185,7 +185,7 @@ class ResNet(nn.Module):
             self.red = None
         else:
             self.red = nn.Linear(512 * block.expansion, int((512 * block.expansion)/red))
-            print("reduce output dimension resnet by {}".format(red))
+            # print("reduce output dimension resnet by {}".format(red))
         if self.neck:
             self.bottleneck = nn.BatchNorm1d(int((512 * block.expansion)/red))
             self.bottleneck.bias.requires_grad_(False)  # no shift

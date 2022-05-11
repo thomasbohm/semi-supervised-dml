@@ -135,7 +135,7 @@ class Trainer():
             self.evaluator.logger.info('{}: {}, {:.1f}'.format(epoch,
                                                                ['{:.1f}'.format(100 * r) for r in recalls],
                                                                100 * nmi))
-        self.evaluator.logger.info('BEST R@1 (EPOCH {}): {}'.format(best_epoch, best_recall_at_1))
+        self.evaluator.logger.info('BEST R@1 (EPOCH {}): {:.3f}'.format(best_epoch, best_recall_at_1))
 
         return best_recall_at_1
 
