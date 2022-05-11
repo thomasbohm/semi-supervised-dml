@@ -25,29 +25,21 @@ def GL_orig_RE(sz_crop=[384, 128],
                mean=[0.485, 0.456, 0.406],
                std=[0.299, 0.224, 0.225],
                is_train=True,
-               RE=False):
-    
+               random_erasing=False):
     sz_resize = 256
     sz_crop = 227
-     
     normalize_transform = transforms.Normalize(mean=mean, std=std)
     
-    if is_train and RE:
-        transform = transforms.Compose([
+    if is_train and random_erasing:
+        transform = [
             transforms.RandomResizedCrop(sz_crop),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize_transform,
-            RandomErasing(probability=0.5,
-                          mean=(0.4914, 0.4822, 0.4465))
-        ])
-    elif is_train:
-        transform = transforms.Compose([
-            transforms.RandomResizedCrop(sz_crop),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize_transform
-        ])
+        ]
+        if random_erasing:
+            transform.append(RandomErasing(probability=0.5, mean=(0.4914, 0.4822, 0.4465)))
+        transform = transforms.Compose(transform)
     else:
         transform = transforms.Compose([
             transforms.Resize(sz_resize),
@@ -55,8 +47,6 @@ def GL_orig_RE(sz_crop=[384, 128],
             transforms.ToTensor(),
             normalize_transform
         ])
-    
-    print(transform)
     return transform
 
 
