@@ -17,7 +17,7 @@ def main(config_path):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='DML Baseline')
-    parser.add_argument('--config_path', type=str, default='config/cars.yaml', help='Path to config file')
+    parser.add_argument('--config_path', type=str, default='config/cub.yaml', help='Path to config file')
     args = parser.parse_args()
     
     main(args.config_path)

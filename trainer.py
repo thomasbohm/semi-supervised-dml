@@ -166,7 +166,7 @@ class Trainer():
         transform_tr = GL_orig_RE(is_train=True, random_erasing=self.config['dataset']['random_erasing'])
         self.logger.info('Train transform:\n{}'.format(transform_tr))
         data_tr = SubsetDataset(root, range(0, train_classes), labeled_fraction, transform_tr)
-        self.logger.info('Train dataset contains {} samples (classes: 0-{}}).'.format(len(data_tr), train_classes - 1))
+        self.logger.info('Train dataset contains {} samples (classes: 0-{}).'.format(len(data_tr), train_classes - 1))
 
         sampler = CombineSampler(get_list_of_inds(data_tr),
                                  self.config['training']['num_classes_iter'],
@@ -189,7 +189,7 @@ class Trainer():
         transform_ev = GL_orig_RE(is_train=False, random_erasing=self.config['dataset']['random_erasing'])
         self.logger.info('Eval transform:\n{}'.format(transform_ev))
         data_ev = SubsetDataset(root, range(train_classes, all_classes + 1), 1.0, transform_ev)
-        self.logger.info('Evaluation dataset contains {} samples (classes: {}-{}}).'.format(len(data_ev), train_classes, all_classes))
+        self.logger.info('Evaluation dataset contains {} samples (classes: {}-{}).'.format(len(data_ev), train_classes, all_classes))
 
         dataloader_eval = DataLoader(
             data_ev,
