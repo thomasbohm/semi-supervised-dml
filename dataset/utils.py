@@ -30,7 +30,7 @@ def GL_orig_RE(sz_crop=[384, 128],
     sz_crop = 227
     normalize_transform = transforms.Normalize(mean=mean, std=std)
     
-    if is_train and random_erasing:
+    if is_train:
         transform = [
             transforms.RandomResizedCrop(sz_crop),
             transforms.RandomHorizontalFlip(),
