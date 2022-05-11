@@ -123,7 +123,7 @@ class Trainer():
                 if recalls[0] > best_recall_at_1:
                     best_recall_at_1 = recalls[0]
                     best_epoch = epoch
-                    torch.save(model.state_dict(), osp.join(self.results_nets_dir, self.filename))
+                    torch.save(model.state_dict(), osp.join(self.results_dir, self.filename))
 
             self.logger.info('Eval  took {:.0f}s'.format(time.time() - eval_start))
             self.logger.info('Epoch took {:.0f}s'.format(time.time() - start))
@@ -216,7 +216,7 @@ class Trainer():
     
     def reduce_lr(self, model, optimizer):
         self.logger.info("Reducing learning rate:")
-        model.load_state_dict(torch.load(osp.join(self.results_nets_dir, self.filename)))
+        model.load_state_dict(torch.load(osp.join(self.results_dir, self.filename)))
         for g in optimizer.param_groups:
             self.logger.info('{} -> {}'.format(g['lr'], g['lr'] / 10))
             g['lr'] /= 10.
