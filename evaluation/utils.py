@@ -50,9 +50,9 @@ class Evaluator():
     def predict_batchwise(self, model, dataloader):
         fc7s, targets = [], []
         with torch.no_grad():
-            for X, targets in dataloader:
-                _, fc7 = model(X.to(self.device))
+            for x, y in dataloader:
+                _, fc7 = model(x.to(self.device))
                 fc7s.append(fc7.cpu())
-                targets.append(targets)
+                targets.append(y)
         fc7, targets = torch.cat(fc7s), torch.cat(targets)
         return torch.squeeze(fc7), torch.squeeze(targets)
