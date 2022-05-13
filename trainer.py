@@ -116,7 +116,7 @@ class Trainer():
                 embeddings1_ulb = embeddings[x_lb.shape[0]:x_lb.shape[0] + x1_ulb.shape[0]]
                 embeddings2_ulb = embeddings[x_lb.shape[0] + x1_ulb.shape[0]:]
 
-                loss_ce = loss_fn_lb(preds_lb / self.config['training']['temperature'], y_lb)
+                loss_ce = loss_fn_lb(preds_lb / self.config['training']['temperature'], y_lb.to(self.device))
                 loss_ce *= self.config['training']['ce_weight']
 
                 loss_l2 = loss_fn_ulb(embeddings1_ulb, embeddings2_ulb)
@@ -125,7 +125,7 @@ class Trainer():
                 if torch.isnan(loss_ce) or torch.isnan(loss_l2):
                     self.logger.error("We have NaN numbers, closing\n\n\n")
                     return 0.0
-                    
+
                 loss = loss_ce + loss_l2
                 loss.backward()
                 optimizer.step()
