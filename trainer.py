@@ -9,6 +9,7 @@ import json
 from torch.utils.data import DataLoader
 from dataset.combine_sampler import CombineSampler
 from datetime import datetime
+from dataset.ssl_dataset import create_datasets, get_transforms
 
 from net.load_net import load_resnet50
 from evaluation.utils import Evaluator
@@ -25,10 +26,9 @@ class Trainer():
         self.logger = self.get_logger()
         
         date = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-        self.filename = '{}_{}_{}_{}.pth'.format(self.config['dataset']['name'],
+        self.filename = '{}_{}_{}.pth'.format(self.config['dataset']['name'],
                                                  self.config['dataset']['labeled_fraction'] * 100,
-                                                 self.config['mode'],
-                                                 date)
+                                                 self.config['mode'])
         self.results_dir = './results/{}/{}'.format(config['dataset']['name'], date)
         if not osp.isdir(self.results_dir):
             os.makedirs(self.results_dir)
@@ -58,18 +58,26 @@ class Trainer():
             optimizer = RAdam(model.parameters(),
                               lr=self.config['training']['lr'],
                               weight_decay=self.config['training']['weight_decay'])
-            loss_fn = nn.CrossEntropyLoss()
+            loss_fn_lb = nn.CrossEntropyLoss()
+            loss_fn_ulb = nn.MSELoss()
 
-            dl_tr, dl_ev = self.get_dataloaders(
+            dl_tr_lb, dl_tr_ulb, dl_ev = self.get_dataloaders_ssl(
                 self.config['dataset']['path'],
-                self.config['dataset']['name'],
                 self.config['dataset']['train_classes'],
                 self.config['dataset']['labeled_fraction'],
                 num_workers=4
             )
 
             if self.config['mode'] != 'test':
-                recall_at_1 = self.train_run(model, optimizer, loss_fn, dl_tr, dl_ev)
+                recall_at_1 = self.train_run(
+                    model,
+                    optimizer,
+                    loss_fn_lb,
+                    loss_fn_ulb,
+                    dl_tr_lb,
+                    dl_tr_ulb,
+                    dl_ev
+                )
                 if recall_at_1 > best_recall_at_1:
                     best_recall_at_1 = recall_at_1
                     best_hypers = self.config
@@ -86,7 +94,7 @@ class Trainer():
             self.logger.info('Best Hyperparameters:\n{}'.format(json.dumps(best_hypers, indent=4)))
 
 
-    def train_run(self, model, optimizer, loss_fn, dl_tr, dl_ev):
+    def train_run(self, model, optimizer, loss_fn_lb, loss_fn_ulb, dl_tr_lb, dl_tr_ulb, dl_ev):
         scores = []
         best_epoch = -1
         best_recall_at_1 = 0
@@ -98,17 +106,27 @@ class Trainer():
             if epoch == 30 or epoch == 50:
                 self.reduce_lr(model, optimizer)
 
-            for x, y in dl_tr:
-                x, y = x.to(self.device), y.to(self.device)
-
+            for (x_lb, y_lb), (x1_ulb, x2_ulb, y_ulb) in zip(dl_tr_lb, dl_tr_ulb):
                 optimizer.zero_grad()
-                
-                preds, embeddings = model(x, output_option='plain')
-                loss = loss_fn(preds / self.config['training']['temperatur'], y)
-                
-                if torch.isnan(loss):
-                    self.logger.error("We have NaN numbers, closing\n\n\n")
 
+                x = torch.cat((x_lb, x1_ulb, x2_ulb)).to(self.device)
+                preds, embeddings = model(x, output_option='plain')
+
+                preds_lb = preds[:x_lb.shape[0]]
+                embeddings1_ulb = embeddings[x_lb.shape[0]:x_lb.shape[0] + x1_ulb.shape[0]]
+                embeddings2_ulb = embeddings[x_lb.shape[0] + x1_ulb.shape[0]:]
+
+                loss_ce = loss_fn_lb(preds_lb / self.config['training']['temperature'], y_lb)
+                loss_ce *= self.config['training']['ce_weight']
+
+                loss_l2 = loss_fn_ulb(embeddings1_ulb, embeddings2_ulb)
+                loss_l2 *= self.config['training']['l2_weight']
+                
+                if torch.isnan(loss_ce) or torch.isnan(loss_l2):
+                    self.logger.error("We have NaN numbers, closing\n\n\n")
+                    return 0.0
+                    
+                loss = loss_ce + loss_l2
                 loss.backward()
                 optimizer.step()
 
@@ -159,7 +177,7 @@ class Trainer():
         return logger
     
 
-    def get_dataloaders(self, root, dataset_name, train_classes, labeled_fraction, num_workers):
+    def get_dataloaders_old(self, root, dataset_name, train_classes, labeled_fraction, num_workers):
         batch_size = self.config['training']['num_classes_iter'] * self.config['training']['num_elements_class']
         self.logger.info('Batch size: {}'.format(batch_size))
         
@@ -202,13 +220,72 @@ class Trainer():
         return dataloader_train, dataloader_eval
     
 
+    def get_dataloaders_ssl(self, data_path, train_classes, labeled_fraction, num_workers):
+        trans_train, trans_train_strong, trans_eval = get_transforms()
+        self.logger.info('Train transform:\n{}'.format(trans_train))
+        self.logger.info('Train transform strong:\n{}'.format(trans_train_strong))
+        self.logger.info('Eval transform:\n{}'.format(trans_eval))
+
+        dset_lb, dset_ulb, dset_eval = create_datasets(
+            data_path,
+            train_classes,
+            labeled_fraction,
+            trans_train,
+            trans_train_strong,
+            trans_eval
+        )
+        self.logger.info('{} train samples ({} labeled + {} unlabeled)'.format(len(dset_lb) + len(dset_ulb),
+                                                                                len(dset_lb),
+                                                                                len(dset_ulb)))
+        self.logger.info('{} eval samples'.format(len(dset_eval)))
+
+        batch_size = self.config['training']['num_classes_iter'] * self.config['training']['num_elements_class']
+        self.logger.info('Batch size for labeled and eval: {}'.format(batch_size))
+
+        sampler = CombineSampler(
+            get_list_of_inds(dset_lb),
+            self.config['training']['num_classes_iter'],
+            self.config['training']['num_elements_class']
+        )
+        dl_train_lb = DataLoader(
+            dset_lb,
+            batch_size=batch_size,
+            shuffle=False,
+            sampler=sampler,
+            num_workers=num_workers,
+            drop_last=True,
+            pin_memory=True
+        )
+        self.logger.info('Num batches labeled: {}'.format(len(iter(dl_train_lb))))
+        batch_size_ulb = len(dset_ulb) // len(dl_train_lb)
+        dl_train_ulb = DataLoader(
+            dset_ulb,
+            batch_size=batch_size_ulb,
+            shuffle=True,
+            num_workers=num_workers,
+            drop_last=True,
+            pin_memory=True
+        )
+        self.logger.info('Batch size for unlabeled: {}'.format(batch_size_ulb))
+        self.logger.info('Num batches unlabeled training: {}'.format(len(iter(dl_train_ulb))))
+        dl_eval = DataLoader(
+            dset_eval,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=1,
+            pin_memory=True
+        )
+        assert len(dl_train_lb) == len(dl_train_ulb) != 0
+        return dl_train_lb, dl_train_ulb, dl_eval
+        
+
     def sample_hypers(self):
         config = {
             'lr': 10 ** random.uniform(-5, -3),
             'weight_decay': 10 ** random.uniform(-15, -6),
             'num_classes_iter': random.randint(6, 15),
             'num_elements_class': random.randint(3, 9),
-            'temperatur': random.random(),
+            'temperature': random.random(),
             'epochs': 40
         }
         self.config['training'].update(config)
