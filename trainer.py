@@ -22,7 +22,8 @@ class Trainer():
     def __init__(self, config):
         self.config = config
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.evaluator = Evaluator(self.device)
+        logging_level = logging.INFO if config['mode'] != 'hyper' else logging.ERROR
+        self.evaluator = Evaluator(self.device, logging_level=logging_level)
         self.logger = self.get_logger()
         
         date = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
@@ -154,19 +155,19 @@ class Trainer():
                     best_epoch = epoch
                     torch.save(model.state_dict(), osp.join(self.results_dir, self.filename))
 
-            self.logger.info('Eval  took {:.0f}s'.format(time.time() - eval_start))
+            self.evaluator.logger.info('Eval  took {:.0f}s'.format(time.time() - eval_start))
             self.logger.info('Epoch took {:.0f}s'.format(time.time() - start))
             start = time.time()
 
-        self.evaluator.logger.info('-' * 50)
-        self.evaluator.logger.info('ALL TRAINING SCORES (EPOCH, RECALLS, NMI):')
+        self.logger.info('-' * 50)
+        self.logger.info('ALL TRAINING SCORES (EPOCH, RECALLS, NMI):')
         for epoch, recalls, nmi in scores:
-            self.evaluator.logger.info('{}: {}, {:.1f}'.format(
+            self.logger.info('{}: {}, {:.1f}'.format(
                 epoch,
                 ['{:.1f}'.format(100 * r) for r in recalls],
                 100 * nmi)
             )
-        self.evaluator.logger.info('BEST R@1 (EPOCH {}): {:.3f}'.format(best_epoch, best_recall_at_1))
+        self.logger.info('BEST R@1 (EPOCH {}): {:.3f}'.format(best_epoch, best_recall_at_1))
 
         return best_recall_at_1
 

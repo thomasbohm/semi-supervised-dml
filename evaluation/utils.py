@@ -6,12 +6,12 @@ from .recall import calc_recall_at_k, assign_by_euclidian_at_k
 
 
 class Evaluator():
-    def __init__(self, device, cat=0):
+    def __init__(self, device, cat=0, logging_level=logging.INFO):
         self.cat = cat
         self.device = device
 
         self.logger = logging.getLogger('Evaluator')
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(logging_level)
         formatter = logging.Formatter('%(asctime)s:%(name)s: %(message)s')
         ch = logging.StreamHandler()
         ch.setFormatter(formatter)
