@@ -54,6 +54,9 @@ class Trainer():
                 pretrained_path=self.config['model']['pretrained_path'],
                 reduction=self.config['model']['reduction']
             )
+            if torch.cuda.device_count() > 1:
+                self.logger.info('Using {} GPUs'.format(torch.cuda.device_count()))
+                model = nn.DataParallel(model)
             model = model.to(self.device)
             self.logger.info('Loaded resnet50 with embedding dim {}.'.format(embed_size))
 
