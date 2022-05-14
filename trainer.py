@@ -49,9 +49,11 @@ class Trainer():
 
             self.logger.info("Config:\n{}".format(json.dumps(self.config, indent=4)))
 
-            model, embed_size = load_resnet50(num_classes=self.config['dataset']['train_classes'],
-                                              pretrained_path=self.config['model']['pretrained_path'],
-                                              reduction=self.config['model']['reduction'])
+            model, embed_size = load_resnet50(
+                num_classes=self.config['dataset']['train_classes'],
+                pretrained_path=self.config['model']['pretrained_path'],
+                reduction=self.config['model']['reduction']
+            )
             model = model.to(self.device)
             self.logger.info('Loaded resnet50 with embedding dim {}.'.format(embed_size))
 
@@ -87,7 +89,7 @@ class Trainer():
                     os.rename(osp.join(self.results_dir, self.filename),
                               osp.join(self.results_dir, filename))
             else:
-                self.evaluate(model, dl_ev)
+                self.test_run(model, dl_ev)
         
         if hyper_search:
             self.logger.info('Best R@1: {:.3}'.format(best_recall_at_1 * 100))
@@ -116,7 +118,10 @@ class Trainer():
                 embeddings1_ulb = embeddings[x_lb.shape[0]:x_lb.shape[0] + x1_ulb.shape[0]]
                 embeddings2_ulb = embeddings[x_lb.shape[0] + x1_ulb.shape[0]:]
 
-                loss_ce = loss_fn_lb(preds_lb / self.config['training']['temperature'], y_lb.to(self.device))
+                loss_ce = loss_fn_lb(
+                    preds_lb / self.config['training']['temperature'],
+                    y_lb.to(self.device)
+                )
                 loss_ce *= self.config['training']['ce_weight']
 
                 loss_l2 = loss_fn_ulb(embeddings1_ulb, embeddings2_ulb)
@@ -132,10 +137,12 @@ class Trainer():
 
             eval_start = time.time()
             with torch.no_grad():
-                recalls, nmi = self.evaluator.evaluate(model,
-                                                       dl_ev,
-                                                       dataroot=self.config['dataset']['name'],
-                                                       num_classes=self.config['dataset']['train_classes'])
+                recalls, nmi = self.evaluator.evaluate(
+                    model,
+                    dl_ev,
+                    dataroot=self.config['dataset']['name'],
+                    num_classes=self.config['dataset']['train_classes']
+                )
                 scores.append((epoch, recalls, nmi))
 
                 if recalls[0] > best_recall_at_1:
@@ -150,20 +157,24 @@ class Trainer():
         self.evaluator.logger.info('-' * 50)
         self.evaluator.logger.info('ALL TRAINING SCORES (EPOCH, RECALLS, NMI):')
         for epoch, recalls, nmi in scores:
-            self.evaluator.logger.info('{}: {}, {:.1f}'.format(epoch,
-                                                               ['{:.1f}'.format(100 * r) for r in recalls],
-                                                               100 * nmi))
+            self.evaluator.logger.info('{}: {}, {:.1f}'.format(
+                epoch,
+                ['{:.1f}'.format(100 * r) for r in recalls],
+                100 * nmi)
+            )
         self.evaluator.logger.info('BEST R@1 (EPOCH {}): {:.3f}'.format(best_epoch, best_recall_at_1))
 
         return best_recall_at_1
 
     
-    def evaluate(self, model, dl_ev):
+    def test_run(self, model, dl_ev):
         with torch.no_grad():
-            recalls, nmi = self.evaluator.evaluate(model,
-                                                   dl_ev,
-                                                   dataroot=self.config['dataset']['name'],
-                                                   num_classes=self.config['dataset']['train_classes'])
+            recalls, nmi = self.evaluator.evaluate(
+                model,
+                dl_ev,
+                dataroot=self.config['dataset']['name'],
+                num_classes=self.config['dataset']['train_classes']
+            )
             return recalls, nmi
 
 
@@ -178,13 +189,17 @@ class Trainer():
     
 
     def get_dataloaders_old(self, root, dataset_name, train_classes, labeled_fraction, num_workers):
-        batch_size = self.config['training']['num_classes_iter'] * self.config['training']['num_elements_class']
+        batch_size = self.config['training']['num_classes_iter'] 
+        batch_size *= self.config['training']['num_elements_class']
         self.logger.info('Batch size: {}'.format(batch_size))
         
         transform_tr = GL_orig_RE(is_train=True, random_erasing=self.config['dataset']['random_erasing'])
         self.logger.info('Train transform:\n{}'.format(transform_tr))
         data_tr = SubsetDataset(root, range(0, train_classes), labeled_fraction, transform_tr)
-        self.logger.info('Train dataset contains {} samples (classes: 0-{}).'.format(len(data_tr), train_classes - 1))
+        self.logger.info('Train dataset contains {} samples (classes: 0-{}).'.format(
+            len(data_tr),
+            train_classes - 1)
+        )
 
         sampler = CombineSampler(get_list_of_inds(data_tr),
                                  self.config['training']['num_classes_iter'],
@@ -207,7 +222,11 @@ class Trainer():
         transform_ev = GL_orig_RE(is_train=False, random_erasing=self.config['dataset']['random_erasing'])
         self.logger.info('Eval transform:\n{}'.format(transform_ev))
         data_ev = SubsetDataset(root, range(train_classes, all_classes + 1), 1.0, transform_ev)
-        self.logger.info('Evaluation dataset contains {} samples (classes: {}-{}).'.format(len(data_ev), train_classes, all_classes))
+        self.logger.info('Evaluation dataset contains {} samples (classes: {}-{}).'.format(
+            len(data_ev),
+            train_classes,
+            all_classes)
+        )
 
         dataloader_eval = DataLoader(
             data_ev,
@@ -234,40 +253,48 @@ class Trainer():
             trans_train_strong,
             trans_eval
         )
-        self.logger.info('{} train samples ({} labeled + {} unlabeled)'.format(len(dset_lb) + len(dset_ulb),
-                                                                                len(dset_lb),
-                                                                                len(dset_ulb)))
+        self.logger.info('{} train samples ({} labeled + {} unlabeled)'.format(
+            len(dset_lb) + len(dset_ulb),
+            len(dset_lb),
+            len(dset_ulb))
+        )
         self.logger.info('{} eval samples'.format(len(dset_eval)))
 
-        batch_size = self.config['training']['num_classes_iter'] * self.config['training']['num_elements_class']
+        batch_size = self.config['training']['num_classes_iter'] 
+        batch_size *= self.config['training']['num_elements_class']
         self.logger.info('Batch size for labeled and eval: {}'.format(batch_size))
 
-        sampler = CombineSampler(
-            get_list_of_inds(dset_lb),
-            self.config['training']['num_classes_iter'],
-            self.config['training']['num_elements_class']
-        )
-        dl_train_lb = DataLoader(
-            dset_lb,
-            batch_size=batch_size,
-            shuffle=False,
-            sampler=sampler,
-            num_workers=num_workers,
-            drop_last=True,
-            pin_memory=True
-        )
-        self.logger.info('Num batches labeled: {}'.format(len(iter(dl_train_lb))))
-        batch_size_ulb = len(dset_ulb) // len(dl_train_lb)
-        dl_train_ulb = DataLoader(
-            dset_ulb,
-            batch_size=batch_size_ulb,
-            shuffle=True,
-            num_workers=num_workers,
-            drop_last=True,
-            pin_memory=True
-        )
-        self.logger.info('Batch size for unlabeled: {}'.format(batch_size_ulb))
-        self.logger.info('Num batches unlabeled training: {}'.format(len(iter(dl_train_ulb))))
+        dl_train_lb, dl_train_ulb = None, None
+
+        if self.config['mode'] != 'test':
+            sampler = CombineSampler(
+                get_list_of_inds(dset_lb),
+                self.config['training']['num_classes_iter'],
+                self.config['training']['num_elements_class']
+            )
+            dl_train_lb = DataLoader(
+                dset_lb,
+                batch_size=batch_size,
+                shuffle=False,
+                sampler=sampler,
+                num_workers=num_workers,
+                drop_last=True,
+                pin_memory=True
+            )
+            self.logger.info('Num batches labeled: {}'.format(len(iter(dl_train_lb))))
+            batch_size_ulb = len(dset_ulb) // len(dl_train_lb)
+            dl_train_ulb = DataLoader(
+                dset_ulb,
+                batch_size=batch_size_ulb,
+                shuffle=True,
+                num_workers=num_workers,
+                drop_last=True,
+                pin_memory=True
+            )
+            self.logger.info('Batch size for unlabeled: {}'.format(batch_size_ulb))
+            self.logger.info('Num batches unlabeled training: {}'.format(len(iter(dl_train_ulb))))
+            assert len(dl_train_lb) == len(dl_train_ulb) != 0
+
         dl_eval = DataLoader(
             dset_eval,
             batch_size=batch_size,
@@ -275,7 +302,6 @@ class Trainer():
             num_workers=1,
             pin_memory=True
         )
-        assert len(dl_train_lb) == len(dl_train_ulb) != 0
         return dl_train_lb, dl_train_ulb, dl_eval
         
 
