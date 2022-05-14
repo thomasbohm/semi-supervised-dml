@@ -122,10 +122,11 @@ class Trainer():
                     preds_lb / self.config['training']['temperature'],
                     y_lb.to(self.device)
                 )
-                loss_ce *= self.config['training']['ce_weight']
+                # loss_ce *= self.config['training']['ce_weight']
 
                 loss_l2 = loss_fn_ulb(embeddings1_ulb, embeddings2_ulb)
-                loss_l2 *= self.config['training']['l2_weight']
+                loss_l2 *= epoch / self.config['training']['epochs']
+                # loss_l2 *= self.config['training']['l2_weight']
                 
                 if torch.isnan(loss_ce) or torch.isnan(loss_l2):
                     self.logger.error("We have NaN numbers, closing\n\n\n")
