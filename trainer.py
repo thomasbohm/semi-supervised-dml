@@ -314,8 +314,8 @@ class Trainer():
         config = {
             'lr': 10 ** random.uniform(-5, -3),
             'weight_decay': 10 ** random.uniform(-15, -6),
-            'num_classes_iter': random.randint(6, 10),
-            'num_elements_class': random.randint(3, 8),
+            'num_classes_iter': random.randint(5, 9),
+            'num_elements_class': random.randint(3, 6),
             'temperature': random.random(),
             'epochs': 40
         }
