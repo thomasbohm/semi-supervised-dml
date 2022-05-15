@@ -65,7 +65,11 @@ class Trainer():
                               lr=self.config['training']['lr'],
                               weight_decay=self.config['training']['weight_decay'])
             loss_fn_lb = nn.CrossEntropyLoss()
-            loss_fn_ulb = nn.MSELoss()
+            loss_fn_ulb = None
+            if 'l2' in self.config['training']['loss'].split('_'):
+                loss_fn_ulb = nn.MSELoss()
+            elif 'kl' in self.config['training']['loss'].split('_'):
+                loss_fn_ulb = nn.KLDivLoss()
 
             dl_tr_lb, dl_tr_ulb, dl_ev = self.get_dataloaders_ssl(
                 self.config['dataset']['path'],
@@ -112,31 +116,37 @@ class Trainer():
             if epoch == 30 or epoch == 50:
                 self.reduce_lr(model, optimizer)
 
-            for (x_lb, y_lb), (x1_ulb, x2_ulb, y_ulb) in zip(dl_tr_lb, dl_tr_ulb):
+            for (x_lb, y_lb), (x1_ulb, x2_ulb, _) in zip(dl_tr_lb, dl_tr_ulb):
                 optimizer.zero_grad()
 
-                x = torch.cat((x_lb, x1_ulb, x2_ulb)).to(self.device)
+                if loss_fn_ulb:
+                    x = torch.cat((x_lb, x1_ulb, x2_ulb))
+                else:
+                    x = x_lb
+
+                x = x.to(self.device)
                 preds, embeddings = model(x, output_option='plain')
 
                 preds_lb = preds[:x_lb.shape[0]]
-                embeddings1_ulb = embeddings[x_lb.shape[0]:x_lb.shape[0] + x1_ulb.shape[0]]
-                embeddings2_ulb = embeddings[x_lb.shape[0] + x1_ulb.shape[0]:]
-
-                loss_ce = loss_fn_lb(
+                loss_lb = loss_fn_lb(
                     preds_lb / self.config['training']['temperature'],
                     y_lb.to(self.device)
                 )
-                # loss_ce *= self.config['training']['ce_weight']
 
-                loss_l2 = loss_fn_ulb(embeddings1_ulb, embeddings2_ulb)
-                loss_l2 *= epoch / self.config['training']['epochs']
-                # loss_l2 *= self.config['training']['l2_weight']
+                if loss_fn_ulb:
+                    embeddings1_ulb = embeddings[x_lb.shape[0]:x_lb.shape[0] + x1_ulb.shape[0]]
+                    embeddings2_ulb = embeddings[x_lb.shape[0] + x1_ulb.shape[0]:]
+
+                    loss_ulb = loss_fn_ulb(embeddings1_ulb, embeddings2_ulb)
+                    loss_ulb *= epoch / self.config['training']['epochs']
+                else:
+                    loss_ulb = torch.tensor(0)
                 
-                if torch.isnan(loss_ce) or torch.isnan(loss_l2):
+                if torch.isnan(loss_lb) or torch.isnan(loss_ulb):
                     self.logger.error("We have NaN numbers, closing\n\n\n")
                     return 0.0
 
-                loss = loss_ce + loss_l2
+                loss = loss_lb + loss_ulb
                 loss.backward()
                 optimizer.step()
 

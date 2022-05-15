@@ -18,5 +18,4 @@ training:
   num_classes_iter: 15
   num_elements_class: 6
   temperature: 0.11
-  ce_weight: 0.9
-  l2_weight: 0.1
+  loss: "ce_l2"
