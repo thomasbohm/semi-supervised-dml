@@ -240,7 +240,7 @@ class Trainer():
                 dset_lb.targets,
                 m=elements_per_class,
                 batch_size=batch_size_lb,
-                length_before_new_iter=num_batches
+                length_before_new_iter=batch_size_lb * num_batches
             )
             dl_train_lb = DataLoader(
                 dset_lb,
@@ -253,7 +253,7 @@ class Trainer():
             sampler_ulb = RandomSampler(
                 dset_ulb,
                 replacement=True,
-                num_samples=batch_size_ulb*num_batches
+                num_samples=batch_size_ulb * num_batches
             )
             dl_train_ulb = DataLoader(
                 dset_ulb,
