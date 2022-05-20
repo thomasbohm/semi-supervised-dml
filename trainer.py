@@ -140,7 +140,7 @@ class Trainer():
                     embeddings2_ulb = embeddings[x_lb.shape[0] + x1_ulb.shape[0]:]
 
                     loss_ulb = loss_fn_ulb(embeddings1_ulb, embeddings2_ulb)
-                    loss_ulb *= epoch / self.config['training']['epochs']
+                    # loss_ulb *= epoch / self.config['training']['epochs']
                 else:
                     loss_ulb = torch.tensor(0)
                 
