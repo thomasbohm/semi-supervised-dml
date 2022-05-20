@@ -19,3 +19,4 @@ training:
   num_elements_class: 9
   temperature: 0.11
   loss: "ce_l2"
+  ulb_batch_size_factor: 1

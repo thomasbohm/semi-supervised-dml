@@ -6,8 +6,9 @@ import os
 import os.path as osp
 import random
 import json
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 from dataset.combine_sampler import CombineSampler
+from dataset.m_per_class_sampler import MPerClassSampler
 from datetime import datetime
 from dataset.ssl_dataset import create_datasets, get_transforms
 
@@ -64,6 +65,7 @@ class Trainer():
             optimizer = RAdam(model.parameters(),
                               lr=self.config['training']['lr'],
                               weight_decay=self.config['training']['weight_decay'])
+            
             loss_fn_lb = nn.CrossEntropyLoss()
             loss_fn_ulb = None
             if 'l2' in self.config['training']['loss'].split('_'):
@@ -203,57 +205,6 @@ class Trainer():
         return logger
     
 
-    def get_dataloaders_old(self, root, dataset_name, train_classes, labeled_fraction, num_workers):
-        batch_size = self.config['training']['num_classes_iter'] 
-        batch_size *= self.config['training']['num_elements_class']
-        self.logger.info('Batch size: {}'.format(batch_size))
-        
-        transform_tr = GL_orig_RE(is_train=True, random_erasing=self.config['dataset']['random_erasing'])
-        self.logger.info('Train transform:\n{}'.format(transform_tr))
-        data_tr = SubsetDataset(root, range(0, train_classes), labeled_fraction, transform_tr)
-        self.logger.info('Train dataset contains {} samples (classes: 0-{}).'.format(
-            len(data_tr),
-            train_classes - 1)
-        )
-
-        sampler = CombineSampler(get_list_of_inds(data_tr),
-                                 self.config['training']['num_classes_iter'],
-                                 self.config['training']['num_elements_class'])
-
-        dataloader_train = DataLoader(
-            data_tr,
-            batch_size=batch_size,
-            shuffle=False,
-            sampler=sampler,
-            num_workers=num_workers,
-            drop_last=True,
-            pin_memory=True
-        )
-        
-        all_classes = 2 * train_classes
-        if dataset_name == 'SOP':
-            all_classes -= 2
-
-        transform_ev = GL_orig_RE(is_train=False, random_erasing=self.config['dataset']['random_erasing'])
-        self.logger.info('Eval transform:\n{}'.format(transform_ev))
-        data_ev = SubsetDataset(root, range(train_classes, all_classes + 1), 1.0, transform_ev)
-        self.logger.info('Evaluation dataset contains {} samples (classes: {}-{}).'.format(
-            len(data_ev),
-            train_classes,
-            all_classes)
-        )
-
-        dataloader_eval = DataLoader(
-            data_ev,
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=1,
-            pin_memory=True
-        )
-                        
-        return dataloader_train, dataloader_eval
-    
-
     def get_dataloaders_ssl(self, data_path, train_classes, labeled_fraction, num_workers):
         trans_train, trans_train_strong, trans_eval = get_transforms()
         self.logger.info('Train transform:\n{}'.format(trans_train))
@@ -275,44 +226,51 @@ class Trainer():
         )
         self.logger.info('{} eval samples'.format(len(dset_eval)))
 
-        batch_size = self.config['training']['num_classes_iter'] 
-        batch_size *= self.config['training']['num_elements_class']
-        self.logger.info('Batch size for labeled and eval: {}'.format(batch_size))
+        class_per_batch = self.config['training']['num_classes_iter']
+        elements_per_class = self.config['training']['num_elements_class']
+
+        batch_size_lb = class_per_batch * elements_per_class
+        batch_size_ulb = self.config['training']['ulb_batch_size_factor'] * batch_size_lb
+        num_batches = len(dset_lb) // batch_size_lb
 
         dl_train_lb, dl_train_ulb = None, None
 
         if self.config['mode'] != 'test':
-            sampler = CombineSampler(
-                get_list_of_inds(dset_lb),
-                self.config['training']['num_classes_iter'],
-                self.config['training']['num_elements_class']
+            sampler_lb = MPerClassSampler(
+                dset_lb.targets,
+                m=elements_per_class,
+                batch_size=batch_size_lb,
+                length_before_new_iter=num_batches
             )
             dl_train_lb = DataLoader(
                 dset_lb,
-                batch_size=batch_size,
-                shuffle=False,
-                sampler=sampler,
+                batch_size=batch_size_lb,
+                sampler=sampler_lb,
                 num_workers=num_workers,
                 drop_last=True,
                 pin_memory=True
             )
-            self.logger.info('Num batches labeled: {}'.format(len(iter(dl_train_lb))))
-            batch_size_ulb = len(dset_ulb) // len(dl_train_lb)
+            sampler_ulb = RandomSampler(
+                dset_ulb,
+                replacement=True,
+                num_samples=batch_size_ulb*num_batches
+            )
             dl_train_ulb = DataLoader(
                 dset_ulb,
                 batch_size=batch_size_ulb,
-                shuffle=True,
+                sampler=sampler_ulb,
                 num_workers=num_workers,
                 drop_last=True,
                 pin_memory=True
             )
-            self.logger.info('Batch size for unlabeled: {}'.format(batch_size_ulb))
-            self.logger.info('Num batches unlabeled training: {}'.format(len(iter(dl_train_ulb))))
-            assert len(dl_train_lb) == len(dl_train_ulb) != 0
+            self.logger.info('Batch size labeled:   {}'.format(batch_size_lb))
+            self.logger.info('Batch size unlabeled: {}'.format(batch_size_ulb))
+            self.logger.info('Num batches: {}'.format(num_batches))
+            assert len(dl_train_lb) == len(dl_train_ulb) == num_batches
 
         dl_eval = DataLoader(
             dset_eval,
-            batch_size=batch_size,
+            batch_size=batch_size_lb,
             shuffle=False,
             num_workers=1,
             pin_memory=True
@@ -324,8 +282,8 @@ class Trainer():
         config = {
             'lr': 10 ** random.uniform(-5, -3),
             'weight_decay': 10 ** random.uniform(-15, -6),
-            'num_classes_iter': random.randint(4, 8),
-            'num_elements_class': random.randint(3, 5),
+            'num_classes_iter': random.randint(6, 15),
+            'num_elements_class': random.randint(3, 9),
             'temperature': random.random(),
             'epochs': 40
         }
