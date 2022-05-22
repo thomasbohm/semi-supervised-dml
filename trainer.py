@@ -131,6 +131,7 @@ class Trainer():
                 preds, embeddings = model(x, output_option='plain')
 
                 preds_lb = preds[:x_lb.shape[0]]
+                preds_lb = F.normalize(preds_lb)
                 loss_lb = loss_fn_lb(
                     preds_lb / self.config['training']['temperature'],
                     y_lb.to(self.device)
@@ -145,7 +146,7 @@ class Trainer():
                     embeddings1_ulb = embeddings[x_lb.shape[0]:x_lb.shape[0] + x1_ulb.shape[0]]
                     embeddings2_ulb = embeddings[x_lb.shape[0] + x1_ulb.shape[0]:]
 
-                    loss_ulb = loss_fn_ulb(preds1_ulb, preds2_ulb)
+                    loss_ulb = loss_fn_ulb(embeddings1_ulb, embeddings2_ulb)
                     #loss_ulb = F.normalize(loss_ulb)
                     #loss_ulb = loss_lb.mean()
                     # loss_ulb *= epoch / self.config['training']['epochs']
