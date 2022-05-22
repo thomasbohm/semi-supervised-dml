@@ -2,6 +2,7 @@ import logging
 import time
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import os
 import os.path as osp
 import random
@@ -134,7 +135,7 @@ class Trainer():
                     preds_lb / self.config['training']['temperature'],
                     y_lb.to(self.device)
                 )
-                loss_lb = loss_lb.normalize()
+                loss_lb = F.normalize(loss_lb)
                 loss_lb = loss_lb.mean()
 
                 if loss_fn_ulb:
@@ -142,7 +143,7 @@ class Trainer():
                     embeddings2_ulb = embeddings[x_lb.shape[0] + x1_ulb.shape[0]:]
 
                     loss_ulb = loss_fn_ulb(embeddings1_ulb, embeddings2_ulb)
-                    loss_ulb = loss_lb.normalize()
+                    loss_ulb = F.normalize(loss_ulb)
                     loss_ulb = loss_lb.mean()
                     # loss_ulb *= epoch / self.config['training']['epochs']
                 else:
