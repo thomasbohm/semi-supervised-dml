@@ -66,10 +66,10 @@ class Trainer():
                               lr=self.config['training']['lr'],
                               weight_decay=self.config['training']['weight_decay'])
             
-            loss_fn_lb = nn.CrossEntropyLoss()
+            loss_fn_lb = nn.CrossEntropyLoss(reduction='none')
             loss_fn_ulb = None
             if 'l2' in self.config['training']['loss'].split('_'):
-                loss_fn_ulb = nn.MSELoss()
+                loss_fn_ulb = nn.MSELoss(reduction='none')
             elif 'kl' in self.config['training']['loss'].split('_'):
                 loss_fn_ulb = nn.KLDivLoss()
 
@@ -134,12 +134,16 @@ class Trainer():
                     preds_lb / self.config['training']['temperature'],
                     y_lb.to(self.device)
                 )
+                loss_lb = loss_lb.normalize()
+                loss_lb = loss_lb.mean()
 
                 if loss_fn_ulb:
                     embeddings1_ulb = embeddings[x_lb.shape[0]:x_lb.shape[0] + x1_ulb.shape[0]]
                     embeddings2_ulb = embeddings[x_lb.shape[0] + x1_ulb.shape[0]:]
 
                     loss_ulb = loss_fn_ulb(embeddings1_ulb, embeddings2_ulb)
+                    loss_ulb = loss_lb.normalize()
+                    loss_ulb = loss_lb.mean()
                     # loss_ulb *= epoch / self.config['training']['epochs']
                 else:
                     loss_ulb = torch.tensor(0)
@@ -148,6 +152,7 @@ class Trainer():
                     self.logger.error("We have NaN numbers, closing\n\n\n")
                     return 0.0
 
+                self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
                 loss = loss_lb + loss_ulb
                 loss.backward()
                 optimizer.step()
