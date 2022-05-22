@@ -67,7 +67,7 @@ class Trainer():
                               lr=self.config['training']['lr'],
                               weight_decay=self.config['training']['weight_decay'])
             
-            loss_fn_lb = nn.CrossEntropyLoss(reduction='mean')
+            loss_fn_lb = nn.CrossEntropyLoss(reduction='none')
             loss_fn_ulb = None
             if 'l2' in self.config['training']['loss'].split('_'):
                 loss_fn_ulb = nn.MSELoss(reduction='mean')
@@ -131,14 +131,14 @@ class Trainer():
                 preds, embeddings = model(x, output_option='plain')
 
                 preds_lb = preds[:x_lb.shape[0]]
-                preds_lb = F.normalize(preds_lb)
+                #preds_lb = F.normalize(preds_lb)
                 loss_lb = loss_fn_lb(
                     preds_lb / self.config['training']['temperature'],
                     y_lb.to(self.device)
                 )
-                #print('loss shape:', loss_lb.shape)
-                #loss_lb = F.normalize(loss_lb)
-                #loss_lb = loss_lb.mean()
+                self.logger.info('Loss: {}\n{}'.format(loss_lb.shape, loss_lb))
+                loss_lb = F.normalize(loss_lb, p=2, dim=-1)
+                loss_lb = loss_lb.mean()
 
                 if loss_fn_ulb:
                     preds1_ulb = preds[x_lb.shape[0]:x_lb.shape[0] + x1_ulb.shape[0]]
