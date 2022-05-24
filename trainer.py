@@ -73,7 +73,7 @@ class Trainer():
             if 'l2' in self.config['training']['loss'].split('_'):
                 loss_fn_ulb = nn.MSELoss()
             elif 'kl' in self.config['training']['loss'].split('_'):
-                loss_fn_ulb = nn.KLDivLoss(log_target=False, reduction='batchmean')
+                loss_fn_ulb = nn.KLDivLoss(log_target=True, reduction='batchmean')
 
             dl_tr_lb, dl_tr_ulb, dl_ev = self.get_dataloaders_ssl(
                 self.config['dataset']['path'],
@@ -148,6 +148,7 @@ class Trainer():
                     if 'l2' in self.config['training']['loss'].split('_'):
                         loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
                     elif 'kl' in self.config['training']['loss'].split('_'):
+                        preds_ulb_w = F.log_softmax(preds_ulb_w)
                         preds_ulb_s = F.log_softmax(preds_ulb_s)
                         loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
                     #loss_ulb = F.normalize(loss_ulb)
