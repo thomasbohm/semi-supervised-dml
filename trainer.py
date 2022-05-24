@@ -67,12 +67,13 @@ class Trainer():
                               lr=self.config['training']['lr'],
                               weight_decay=self.config['training']['weight_decay'])
             
-            loss_fn_lb = nn.CrossEntropyLoss(reduction='none')
+            loss_fn_lb = nn.CrossEntropyLoss()
+
             loss_fn_ulb = None
             if 'l2' in self.config['training']['loss'].split('_'):
-                loss_fn_ulb = nn.MSELoss(reduction='mean')
+                loss_fn_ulb = nn.MSELoss()
             elif 'kl' in self.config['training']['loss'].split('_'):
-                loss_fn_ulb = nn.KLDivLoss()
+                loss_fn_ulb = nn.KLDivLoss(log_target=False, reduction='batchmean')
 
             dl_tr_lb, dl_tr_ulb, dl_ev = self.get_dataloaders_ssl(
                 self.config['dataset']['path'],
@@ -119,11 +120,11 @@ class Trainer():
             if epoch == 30 or epoch == 50:
                 self.reduce_lr(model, optimizer)
 
-            for (x_lb, y_lb), (x1_ulb, x2_ulb, _) in zip(dl_tr_lb, dl_tr_ulb):
+            for (x_lb, y_lb), (x_ulb_w, x_ulb_s, _) in zip(dl_tr_lb, dl_tr_ulb):
                 optimizer.zero_grad()
 
                 if loss_fn_ulb:
-                    x = torch.cat((x_lb, x1_ulb, x2_ulb))
+                    x = torch.cat((x_lb, x_ulb_w, x_ulb_s))
                 else:
                     x = x_lb
 
@@ -131,22 +132,24 @@ class Trainer():
                 preds, embeddings = model(x, output_option='plain')
 
                 preds_lb = preds[:x_lb.shape[0]]
-                #preds_lb = F.normalize(preds_lb)
                 loss_lb = loss_fn_lb(
                     preds_lb / self.config['training']['temperature'],
                     y_lb.to(self.device)
                 )
-                self.logger.info('Loss: {}\n{}'.format(loss_lb.shape, loss_lb))
-                loss_lb = F.normalize(loss_lb, p=2, dim=-1)
-                loss_lb = loss_lb.mean()
+                #loss_lb = F.normalize(loss_lb, p=2, dim=-1)
+                #loss_lb = loss_lb.mean()
 
                 if loss_fn_ulb:
-                    preds1_ulb = preds[x_lb.shape[0]:x_lb.shape[0] + x1_ulb.shape[0]]
-                    preds2_ulb = preds[x_lb.shape[0] + x1_ulb.shape[0]:]
-                    embeddings1_ulb = embeddings[x_lb.shape[0]:x_lb.shape[0] + x1_ulb.shape[0]]
-                    embeddings2_ulb = embeddings[x_lb.shape[0] + x1_ulb.shape[0]:]
+                    preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                    preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
+                    embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                    embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
 
-                    loss_ulb = loss_fn_ulb(embeddings1_ulb, embeddings2_ulb)
+                    if 'l2' in self.config['training']['loss'].split('_'):
+                        loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
+                    elif 'kl' in self.config['training']['loss'].split('_'):
+                        preds_ulb_s = F.log_softmax(preds_ulb_s)
+                        loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
                     #loss_ulb = F.normalize(loss_ulb)
                     #loss_ulb = loss_lb.mean()
                     # loss_ulb *= epoch / self.config['training']['epochs']
