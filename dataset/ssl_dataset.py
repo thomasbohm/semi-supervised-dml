@@ -23,10 +23,12 @@ def create_datasets(
     assert len(data_lb) + len(data_ulb) + len(data_eval) == len(ImageFolder(data_path))
     
     dset_lb = SSLDataset(data_lb, transform=transform_train, is_ulb=False)
-    dset_ulb = SSLDataset(data_ulb,
-                          transform=transform_train,
-                          is_ulb=True,
-                          strong_transform=transform_train_strong)
+    dset_ulb = SSLDataset(
+        data_ulb,
+        transform=transform_train,
+        is_ulb=True,
+        strong_transform=transform_train_strong
+    )
     dset_eval = SSLDataset(data_eval, transform=transform_eval, is_ulb=False)
 
     return dset_lb, dset_ulb, dset_eval

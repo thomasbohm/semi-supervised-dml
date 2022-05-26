@@ -35,7 +35,8 @@ class Trainer():
             os.makedirs(self.results_dir)
         self.logger.info('Results saved to "{}"'.format(self.results_dir))
 
-        self.labeled_only = self.config['training']['loss'] == 'ce'
+        self.labeled_only = self.config['training']['loss'] == 'ce' or \
+                            self.config['dataset']['labeled_fraction'] >= 1.0
     
 
     def start(self):
@@ -173,8 +174,7 @@ class Trainer():
                 self.logger.error("We have NaN numbers, closing\n\n\n")
                 return 0.0
 
-            self.logger.info('loss_lb: {}'.format(loss))
-
+            # self.logger.info('loss_lb: {}'.format(loss))
             loss.backward()
             optimizer.step()
 
@@ -211,7 +211,7 @@ class Trainer():
                 self.logger.error("We have NaN numbers, closing\n\n\n")
                 return 0.0
 
-            self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
+            # self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
             loss = loss_lb + self.config['training']['ulb_loss_weight'] * loss_ulb
             loss.backward()
             optimizer.step()
