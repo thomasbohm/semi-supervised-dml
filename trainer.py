@@ -129,30 +129,27 @@ class Trainer():
                     x = x_lb
 
                 x = x.to(self.device)
-                preds, embeddings = model(x, output_option='plain')
+                preds, embeddings = model(x, output_option='norm', val=False)
 
                 preds_lb = preds[:x_lb.shape[0]]
                 loss_lb = loss_fn_lb(
                     preds_lb / self.config['training']['temperature'],
                     y_lb.to(self.device)
                 )
-                #loss_lb = F.normalize(loss_lb, p=2, dim=-1)
-                #loss_lb = loss_lb.mean()
 
                 if loss_fn_ulb:
-                    preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
-                    preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
-                    embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
-                    embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
-
                     if 'l2' in self.config['training']['loss'].split('_'):
+                        embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                        embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
                         loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
+
                     elif 'kl' in self.config['training']['loss'].split('_'):
+                        preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                        preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
                         preds_ulb_w = F.log_softmax(preds_ulb_w)
                         preds_ulb_s = F.log_softmax(preds_ulb_s)
                         loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
-                    #loss_ulb = F.normalize(loss_ulb)
-                    #loss_ulb = loss_lb.mean()
+
                     # loss_ulb *= epoch / self.config['training']['epochs']
                 else:
                     loss_ulb = torch.tensor(0)
@@ -162,7 +159,7 @@ class Trainer():
                     return 0.0
 
                 self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
-                loss = loss_lb + loss_ulb
+                loss = loss_lb + self.config['ulb_loss_weight'] * loss_ulb
                 loss.backward()
                 optimizer.step()
 
@@ -299,7 +296,8 @@ class Trainer():
             'num_classes_iter': random.randint(6, 15),
             'num_elements_class': random.randint(3, 9),
             'temperature': random.random(),
-            'epochs': 40
+            'epochs': 40,
+            'ulb_loss_weight': random.random()
         }
         self.config['training'].update(config)
 
