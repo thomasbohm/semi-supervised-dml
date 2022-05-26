@@ -1,5 +1,6 @@
 import logging
 import time
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -50,6 +51,8 @@ class Trainer():
                 self.sample_hypers()
 
             self.logger.info("Config:\n{}".format(json.dumps(self.config, indent=4)))
+
+            self.seed_everything()
 
             model, embed_size = load_resnet50(
                 num_classes=self.config['dataset']['train_classes'],
@@ -317,6 +320,7 @@ class Trainer():
         
 
     def sample_hypers(self):
+        random.seed()
         config = {
             'lr': 10 ** random.uniform(-5, -3),
             'weight_decay': 10 ** random.uniform(-15, -6),
@@ -335,3 +339,13 @@ class Trainer():
         for g in optimizer.param_groups:
             self.logger.info('{} -> {}'.format(g['lr'], g['lr'] / 10))
             g['lr'] /= 10.
+
+
+    def seed_everything(self, seed=42):
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.use_deterministic_algorithms(True)
