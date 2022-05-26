@@ -8,7 +8,6 @@ import os.path as osp
 import random
 import json
 from torch.utils.data import DataLoader, RandomSampler
-from dataset.combine_sampler import CombineSampler
 from dataset.m_per_class_sampler import MPerClassSampler
 from datetime import datetime
 from dataset.ssl_dataset import create_datasets, get_transforms
@@ -16,8 +15,6 @@ from dataset.ssl_dataset import create_datasets, get_transforms
 from net.load_net import load_resnet50
 from evaluation.utils import Evaluator
 from RAdam import RAdam
-from dataset.utils import GL_orig_RE, get_list_of_inds
-from dataset.subset_dataset import SubsetDataset
 
 
 class Trainer():
@@ -30,12 +27,14 @@ class Trainer():
         
         date = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
         self.filename = '{}_{}_{}.pth'.format(self.config['dataset']['name'],
-                                                 self.config['dataset']['labeled_fraction'] * 100,
-                                                 self.config['mode'])
+                                              self.config['dataset']['labeled_fraction'] * 100,
+                                              self.config['mode'])
         self.results_dir = './results/{}/{}'.format(config['dataset']['name'], date)
         if not osp.isdir(self.results_dir):
             os.makedirs(self.results_dir)
         self.logger.info('Results saved to "{}"'.format(self.results_dir))
+
+        self.labeled_only = self.config['training']['loss'] == 'ce'
     
 
     def start(self):
@@ -57,11 +56,12 @@ class Trainer():
                 pretrained_path=self.config['model']['pretrained_path'],
                 reduction=self.config['model']['reduction']
             )
+            self.logger.info('Loaded resnet50 with embedding dim {}.'.format(embed_size))
+
             if torch.cuda.device_count() > 1:
                 self.logger.info('Using {} GPUs'.format(torch.cuda.device_count()))
                 model = nn.DataParallel(model)
             model = model.to(self.device)
-            self.logger.info('Loaded resnet50 with embedding dim {}.'.format(embed_size))
 
             optimizer = RAdam(model.parameters(),
                               lr=self.config['training']['lr'],
@@ -120,48 +120,10 @@ class Trainer():
             if epoch == 30 or epoch == 50:
                 self.reduce_lr(model, optimizer)
 
-            for (x_lb, y_lb), (x_ulb_w, x_ulb_s, _) in zip(dl_tr_lb, dl_tr_ulb):
-                optimizer.zero_grad()
-
-                if loss_fn_ulb:
-                    x = torch.cat((x_lb, x_ulb_w, x_ulb_s))
-                else:
-                    x = x_lb
-
-                x = x.to(self.device)
-                preds, embeddings = model(x, output_option='norm', val=False)
-
-                preds_lb = preds[:x_lb.shape[0]]
-                loss_lb = loss_fn_lb(
-                    preds_lb / self.config['training']['temperature'],
-                    y_lb.to(self.device)
-                )
-
-                if loss_fn_ulb:
-                    if 'l2' in self.config['training']['loss'].split('_'):
-                        embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
-                        embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
-                        loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
-
-                    elif 'kl' in self.config['training']['loss'].split('_'):
-                        preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
-                        preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
-                        preds_ulb_w = F.log_softmax(preds_ulb_w)
-                        preds_ulb_s = F.log_softmax(preds_ulb_s)
-                        loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
-
-                    # loss_ulb *= epoch / self.config['training']['epochs']
-                else:
-                    loss_ulb = torch.tensor(0)
-                
-                if torch.isnan(loss_lb) or torch.isnan(loss_ulb):
-                    self.logger.error("We have NaN numbers, closing\n\n\n")
-                    return 0.0
-
-                self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
-                loss = loss_lb + self.config['training']['ulb_loss_weight'] * loss_ulb
-                loss.backward()
-                optimizer.step()
+            if self.labeled_only:
+                self.train_epoch_without_ulb(dl_tr_lb, model, optimizer, loss_fn_lb)
+            else:
+                self.train_epoch_with_ulb(dl_tr_lb, dl_tr_ulb, model, optimizer, loss_fn_lb, loss_fn_ulb)
 
             eval_start = time.time()
             with torch.no_grad():
@@ -178,9 +140,8 @@ class Trainer():
                     best_epoch = epoch
                     torch.save(model.state_dict(), osp.join(self.results_dir, self.filename))
 
-            self.evaluator.logger.info('Eval  took {:.0f}s'.format(time.time() - eval_start))
+            self.evaluator.logger.info('Eval took {:.0f}s'.format(time.time() - eval_start))
             self.logger.info('Epoch took {:.0f}s'.format(time.time() - start))
-            start = time.time()
 
         self.logger.info('-' * 50)
         self.logger.info('ALL TRAINING SCORES (EPOCH, RECALLS, NMI):')
@@ -193,6 +154,64 @@ class Trainer():
         self.logger.info('BEST R@1 (EPOCH {}): {:.3f}'.format(best_epoch, best_recall_at_1))
 
         return best_recall_at_1
+
+
+    def train_epoch_without_ulb(self, dl_tr_lb, model, optimizer, loss_fn_lb):
+        for (x, y) in dl_tr_lb:
+            optimizer.zero_grad()
+
+            x = x.to(self.device)
+            y = y.to(self.device)
+            preds, embeddings = model(x, output_option='norm', val=False)
+
+            loss = loss_fn_lb(preds / self.config['training']['temperature'], y)
+            
+            if torch.isnan(loss):
+                self.logger.error("We have NaN numbers, closing\n\n\n")
+                return 0.0
+
+            self.logger.info('loss_lb: {}'.format(loss))
+
+            loss.backward()
+            optimizer.step()
+
+
+    def train_epoch_with_ulb(self, dl_tr_lb, dl_tr_ulb, model, optimizer, loss_fn_lb, loss_fn_ulb):
+        for (x_lb, y_lb), (x_ulb_w, x_ulb_s, _) in zip(dl_tr_lb, dl_tr_ulb):
+            optimizer.zero_grad()
+
+            x = torch.cat((x_lb, x_ulb_w, x_ulb_s))
+            x = x.to(self.device)
+            preds, embeddings = model(x, output_option='norm', val=False)
+
+            preds_lb = preds[:x_lb.shape[0]]
+            loss_lb = loss_fn_lb(
+                preds_lb / self.config['training']['temperature'],
+                y_lb.to(self.device)
+            )
+
+            if 'l2' in self.config['training']['loss'].split('_'):
+                embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
+                loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
+
+            elif 'kl' in self.config['training']['loss'].split('_'):
+                preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
+                preds_ulb_w = F.log_softmax(preds_ulb_w)
+                preds_ulb_s = F.log_softmax(preds_ulb_s)
+                loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
+
+            # loss_ulb *= epoch / self.config['training']['epochs']
+            
+            if torch.isnan(loss_lb) or torch.isnan(loss_ulb):
+                self.logger.error("We have NaN numbers, closing\n\n\n")
+                return 0.0
+
+            self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
+            loss = loss_lb + self.config['training']['ulb_loss_weight'] * loss_ulb
+            loss.backward()
+            optimizer.step()
 
     
     def test_run(self, model, dl_ev):
