@@ -284,23 +284,27 @@ class Trainer():
                 drop_last=True,
                 pin_memory=True
             )
-            sampler_ulb = RandomSampler(
-                dset_ulb,
-                replacement=True,
-                num_samples=batch_size_ulb * num_batches
-            )
-            dl_train_ulb = DataLoader(
-                dset_ulb,
-                batch_size=batch_size_ulb,
-                sampler=sampler_ulb,
-                num_workers=num_workers,
-                drop_last=True,
-                pin_memory=True
-            )
+            if not self.labeled_only:
+                sampler_ulb = RandomSampler(
+                    dset_ulb,
+                    replacement=True,
+                    num_samples=batch_size_ulb * num_batches
+                )
+                dl_train_ulb = DataLoader(
+                    dset_ulb,
+                    batch_size=batch_size_ulb,
+                    sampler=sampler_ulb,
+                    num_workers=num_workers,
+                    drop_last=True,
+                    pin_memory=True
+                )
             self.logger.info('Batch size labeled:   {}'.format(batch_size_lb))
             self.logger.info('Batch size unlabeled: {}'.format(batch_size_ulb))
             self.logger.info('Num batches: {}'.format(num_batches))
-            assert len(dl_train_lb) == len(dl_train_ulb) == num_batches
+            if self.labeled_only:
+                assert len(dl_train_lb) == num_batches
+            else:
+                assert len(dl_train_lb) == len(dl_train_ulb) == num_batches
 
         dl_eval = DataLoader(
             dset_eval,
