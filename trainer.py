@@ -242,7 +242,11 @@ class Trainer():
 
         batch_size_lb = class_per_batch * elements_per_class
         batch_size_ulb = self.config['training']['ulb_batch_size_factor'] * batch_size_lb
-        num_batches = len(dset_ulb) // batch_size_ulb
+        
+        if self.config['training']['loss'] != 'ce':
+            num_batches = len(dset_ulb) // batch_size_ulb
+        else:
+            num_batches = len(dset_lb) // batch_size_lb
 
         dl_train_lb, dl_train_ulb = None, None
 
