@@ -159,7 +159,7 @@ class Trainer():
                     return 0.0
 
                 self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
-                loss = loss_lb + self.config['ulb_loss_weight'] * loss_ulb
+                loss = loss_lb + self.config['training']['ulb_loss_weight'] * loss_ulb
                 loss.backward()
                 optimizer.step()
 
