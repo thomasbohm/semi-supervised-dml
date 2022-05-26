@@ -348,4 +348,4 @@ class Trainer():
         torch.cuda.manual_seed_all(seed)
 
         torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.use_deterministic_algorithms(True)
+        torch.use_deterministic_algorithms(True)
