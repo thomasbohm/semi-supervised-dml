@@ -47,29 +47,18 @@ class Evaluator():
         return recalls, nmi
 
 
-    # def predict_batchwise(self, model, dataloader):
-    #    fc7s, targets = [], []
-    #    with torch.no_grad():
-    #        for x, y in dataloader:
-    #            x = x.to(self.device)
-    #            _, fc7 = model(x, output_option='plain', val=True)
-    #            fc7s.append(fc7.cpu())
-    #            targets.append(y)
-    #            
-    #    fc7, targets = torch.cat(fc7s), torch.cat(targets)
-    #    return torch.squeeze(fc7), torch.squeeze(targets)
-    
     def predict_batchwise(self, model, dataloader):
-        fc7s, Ys = list(), list()
+        fc7s, targets = [], []
         with torch.no_grad():
-            for X, Y in dataloader:
-                if torch.cuda.is_available(): 
-                    X = X.to(self.device)
-                _, fc7 = model(X, output_option='plain', val=True)
-                fc7s.append(fc7)
-                Ys.append(Y)
-        
-        fc7 = torch.cat([f.unsqueeze(0).cpu() for b in fc7s for f in b], 0)
-        Y = torch.cat([y.unsqueeze(0).cpu() for b in Ys for y in b], 0)
-        
-        return torch.squeeze(fc7), torch.squeeze(Y)
+            for x, y in dataloader:
+                x = x.to(self.device)
+                try:
+                    _, fc7 = model(x, output_option='plain', val=True)
+                except Exception:
+                    print('Shape of x: {}'.format(x.shape))
+                fc7s.append(fc7.cpu())
+                targets.append(y)
+                
+        fc7, targets = torch.cat(fc7s), torch.cat(targets)
+        return torch.squeeze(fc7), torch.squeeze(targets)
+    
