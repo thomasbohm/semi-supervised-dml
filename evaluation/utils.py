@@ -47,7 +47,7 @@ class Evaluator():
         return recalls, nmi
 
 
-    #def predict_batchwise(self, model, dataloader):
+    # def predict_batchwise(self, model, dataloader):
     #    fc7s, targets = [], []
     #    with torch.no_grad():
     #        for x, y in dataloader:
@@ -64,11 +64,11 @@ class Evaluator():
         with torch.no_grad():
             for X, Y in dataloader:
                 if torch.cuda.is_available(): 
-                    X = X.to(self.dev)
+                    X = X.to(self.device)
                 _, fc7 = model(X, output_option='plain', val=True)
                 fc7s.append(fc7)
                 Ys.append(Y)
-                
+        
         fc7 = torch.cat([f.unsqueeze(0).cpu() for b in fc7s for f in b], 0)
         Y = torch.cat([y.unsqueeze(0).cpu() for b in Ys for y in b], 0)
         
