@@ -53,7 +53,7 @@ class Trainer():
 
             self.logger.info("Config:\n{}".format(json.dumps(self.config, indent=4)))
 
-            self.seed_everything()
+            seed_everything()
 
             model, embed_size = load_resnet50(
                 num_classes=self.config['dataset']['train_classes'],
@@ -279,13 +279,17 @@ class Trainer():
                 batch_size=batch_size_lb,
                 length_before_new_iter=batch_size_lb * num_batches
             )
+            g = torch.Generator()
+            g.manual_seed(0)
             dl_train_lb = DataLoader(
                 dset_lb,
                 batch_size=batch_size_lb,
                 sampler=sampler_lb,
                 num_workers=num_workers,
                 drop_last=True,
-                pin_memory=True
+                pin_memory=True,
+                worker_init_fn=seed_worker,
+                generator=g
             )
             if not self.labeled_only:
                 sampler_ulb = RandomSampler(
@@ -293,13 +297,17 @@ class Trainer():
                     replacement=True,
                     num_samples=batch_size_ulb * num_batches
                 )
+                g = torch.Generator()
+                g.manual_seed(0)
                 dl_train_ulb = DataLoader(
                     dset_ulb,
                     batch_size=batch_size_ulb,
                     sampler=sampler_ulb,
                     num_workers=num_workers,
                     drop_last=True,
-                    pin_memory=True
+                    pin_memory=True,
+                    worker_init_fn=seed_worker,
+                    generator=g
                 )
             self.logger.info('Batch size labeled:   {}'.format(batch_size_lb))
             self.logger.info('Batch size unlabeled: {}'.format(batch_size_ulb))
@@ -309,12 +317,16 @@ class Trainer():
             else:
                 assert len(dl_train_lb) == len(dl_train_ulb) == num_batches
 
+        g = torch.Generator()
+        g.manual_seed(0)
         dl_eval = DataLoader(
             dset_eval,
             batch_size=batch_size_lb,
             shuffle=False,
             num_workers=1,
-            pin_memory=True
+            pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g
         )
         return dl_train_lb, dl_train_ulb, dl_eval
         
@@ -341,11 +353,23 @@ class Trainer():
             g['lr'] /= 10.
 
 
-    def seed_everything(self, seed=42):
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
+def seed_everything(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    
+    os.environ["PYTHONHASHSEED"] = f"{seed}"
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.determinstic = True
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.determinstic = True
+    torch.backends.cudnn.benchmark = False
+
+    torch.use_deterministic_algorithms(True)
+    torch.set_num_threads(1)
+
+    
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
