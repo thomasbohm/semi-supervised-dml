@@ -44,8 +44,9 @@ class Trainer():
         hyper_search = self.config['mode'] == 'hyper'
         num_runs = 30 if hyper_search else 1
 
+        best_run = -1
         best_recall_at_1 = -1
-        best_hypers = self.config
+        best_hypers = {}
         for run in range(1, num_runs + 1):
             if hyper_search:
                 self.logger.info('Search run: {}/{}'.format(run, num_runs))
@@ -97,6 +98,7 @@ class Trainer():
                     dl_ev
                 )
                 if recall_at_1 > best_recall_at_1:
+                    best_run = run
                     best_recall_at_1 = recall_at_1
                     best_hypers = self.config
 
@@ -108,7 +110,8 @@ class Trainer():
                 self.test_run(model, dl_ev)
         
         if hyper_search:
-            self.logger.info('Best R@1: {:.3}'.format(best_recall_at_1 * 100))
+            self.logger.info('Best Run: {}'.format(best_run))
+            self.logger.info('Best R@1: {:.4}'.format(best_recall_at_1 * 100))
             self.logger.info('Best Hyperparameters:\n{}'.format(json.dumps(best_hypers, indent=4)))
 
 
