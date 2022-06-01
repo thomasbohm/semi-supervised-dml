@@ -269,8 +269,10 @@ class ResNet(nn.Module):
         
         #x = self.layer4(x, val)
         x = checkpoint.checkpoint(self.layer4, x, val)
-         
+        
+        torch.use_deterministic_algorithms(False)
         x = self.avgpool(x)
+        torch.use_deterministic_algorithms(True)
 
         fc7 = torch.flatten(x, 1)
 
