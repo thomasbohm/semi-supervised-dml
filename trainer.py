@@ -100,7 +100,7 @@ class Trainer():
                 if recall_at_1 > best_recall_at_1:
                     best_run = run
                     best_recall_at_1 = recall_at_1
-                    best_hypers = self.config
+                    best_hypers = self.config.copy()
 
                     filename = '{}_{}_best.pth'.format(self.config['dataset']['name'],
                                                        self.config['dataset']['labeled_fraction'] * 100)
