@@ -8,6 +8,7 @@ import os
 import os.path as osp
 import random
 import json
+import copy
 from torch.utils.data import DataLoader, RandomSampler
 from dataset.m_per_class_sampler import MPerClassSampler
 from datetime import datetime
@@ -100,7 +101,7 @@ class Trainer():
                 if recall_at_1 > best_recall_at_1:
                     best_run = run
                     best_recall_at_1 = recall_at_1
-                    best_hypers = self.config.copy()
+                    best_hypers = copy.deepcopy(self.config)
 
                     filename = '{}_{}_best.pth'.format(self.config['dataset']['name'],
                                                        self.config['dataset']['labeled_fraction'] * 100)
