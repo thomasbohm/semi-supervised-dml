@@ -56,8 +56,15 @@ class Evaluator():
                     _, fc7 = model(x, output_option='plain', val=True)
                     fc7s.append(fc7.cpu())
                     targets.append(y)
-                except Exception:
-                    self.logger.error('Error in predict_batchwise: Shape of x is {}'.format(x.shape))
+                except TypeError:
+                    if torch.cuda.device_count() > 1:
+                        # Silenty skip this error. 
+                        # Happens if len(dset_eval) % batch_size is small
+                        # and multi-gpu training is used. The last batch probably 
+                        # cannot be distributed onto all gpus.
+                        pass
+                    else:
+                        raise TypeError()
                 
         fc7, targets = torch.cat(fc7s), torch.cat(targets)
         return torch.squeeze(fc7), torch.squeeze(targets)
