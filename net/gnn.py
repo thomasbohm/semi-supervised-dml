@@ -52,6 +52,4 @@ class GNNModel(nn.Module):
                 edges.append([i + self.num_proxies, p])
         
         edge_index = torch.tensor(edges, dtype=torch.long).t()
-        print(edge_index)
-        print()
         return edge_index
