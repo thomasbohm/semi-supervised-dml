@@ -345,7 +345,7 @@ class Trainer():
             'temperature': random.random(),
             'epochs': 40,
             'ulb_loss_weight': random.random(),
-            'ulb_batch_size_factor': random.randint(1, 8)
+            # 'ulb_batch_size_factor': random.randint(1, 8)
         }
         self.config['training'].update(config)
 
