@@ -5,7 +5,7 @@ import torch_geometric.nn as geom_nn
 
 
 class GNNModel(nn.Module):
-    def __init__(self, num_proxies):
+    def __init__(self, num_proxies, device):
         super().__init__()
 
         self.layers = nn.ModuleList([
@@ -19,7 +19,7 @@ class GNNModel(nn.Module):
 
         self.fc = nn.Linear(512, 100)
 
-        self.proxies = nn.parameter.Parameter(torch.randn((num_proxies, 512)))
+        self.proxies = nn.parameter.Parameter(torch.randn((num_proxies, 512))).to(device)
         self.num_proxies = num_proxies
     
 

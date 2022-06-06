@@ -70,7 +70,7 @@ class Trainer():
                 model = nn.DataParallel(model)
             model = model.to(self.device)
 
-            gnn = GNNModel(self.config['dataset']['train_classes'])
+            gnn = GNNModel(self.config['dataset']['train_classes'], self.device)
             gnn = gnn.to(self.device)
 
             params = list(set(model.parameters())) + list(set(gnn.parameters()))
