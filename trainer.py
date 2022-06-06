@@ -71,6 +71,7 @@ class Trainer():
             model = model.to(self.device)
 
             gnn = GNNModel(self.config['dataset']['train_classes'])
+            gnn = gnn.to(self.device)
 
             params = list(set(model.parameters())) + list(set(gnn.parameters()))
             param_groups = [{'params': params,
