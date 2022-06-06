@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader, RandomSampler
 from dataset.m_per_class_sampler import MPerClassSampler
 from datetime import datetime
 from dataset.ssl_dataset import create_datasets, get_transforms
+from net.gnn import GNNModel
 
 from net.load_net import load_resnet50
 from evaluation.utils import Evaluator
@@ -69,8 +70,12 @@ class Trainer():
                 model = nn.DataParallel(model)
             model = model.to(self.device)
 
-            optimizer = RAdam(model.parameters(),
-                              lr=self.config['training']['lr'],
+            gnn = GNNModel(self.config['dataset']['train_classes'])
+
+            params = list(set(model.parameters())) + list(set(gnn.parameters()))
+            param_groups = [{'params': params,
+                             'lr': self.config['training']['lr']}]
+            optimizer = RAdam(param_groups,
                               weight_decay=self.config['training']['weight_decay'])
             
             loss_fn_lb = nn.CrossEntropyLoss()
@@ -80,6 +85,8 @@ class Trainer():
                 loss_fn_ulb = nn.MSELoss()
             elif 'kl' in self.config['training']['loss'].split('_'):
                 loss_fn_ulb = nn.KLDivLoss(log_target=True, reduction='batchmean')
+
+            loss_gnn = nn.CrossEntropyLoss()
 
             dl_tr_lb, dl_tr_ulb, dl_ev = self.get_dataloaders_ssl(
                 self.config['dataset']['path'],
@@ -96,7 +103,9 @@ class Trainer():
                     loss_fn_ulb,
                     dl_tr_lb,
                     dl_tr_ulb,
-                    dl_ev
+                    dl_ev,
+                    gnn,
+                    loss_gnn
                 )
                 if recall_at_1 > best_recall_at_1:
                     best_run = run
@@ -116,7 +125,7 @@ class Trainer():
             self.logger.info('Best Hyperparameters:\n{}'.format(json.dumps(best_hypers, indent=4)))
 
 
-    def train_run(self, model, optimizer, loss_fn_lb, loss_fn_ulb, dl_tr_lb, dl_tr_ulb, dl_ev):
+    def train_run(self, model, optimizer, loss_fn_lb, loss_fn_ulb, dl_tr_lb, dl_tr_ulb, dl_ev, gnn, loss_gnn):
         scores = []
         best_epoch = -1
         best_recall_at_1 = 0
@@ -129,7 +138,7 @@ class Trainer():
                 self.reduce_lr(model, optimizer)
 
             if self.labeled_only:
-                self.train_epoch_without_ulb(dl_tr_lb, model, optimizer, loss_fn_lb)
+                self.train_epoch_without_ulb(dl_tr_lb, model, optimizer, loss_fn_lb, gnn, loss_gnn)
             else:
                 self.train_epoch_with_ulb(dl_tr_lb, dl_tr_ulb, model, optimizer, loss_fn_lb, loss_fn_ulb)
 
@@ -164,21 +173,24 @@ class Trainer():
         return best_recall_at_1
 
 
-    def train_epoch_without_ulb(self, dl_tr_lb, model, optimizer, loss_fn_lb):
+    def train_epoch_without_ulb(self, dl_tr_lb, model, optimizer, loss_fn_lb, gnn, loss_fn_gnn):
         for (x, y) in dl_tr_lb:
             optimizer.zero_grad()
 
             x = x.to(self.device)
             y = y.to(self.device)
             preds, embeddings = model(x, output_option='norm', val=False)
-
             loss = loss_fn_lb(preds / self.config['training']['temperature'], y)
             
-            if torch.isnan(loss):
+            preds, embeddings = gnn(embeddings)
+            loss2 = loss_fn_gnn(preds, y)
+
+            if torch.isnan(loss) or torch.isnan(loss2):
                 self.logger.error("We have NaN numbers, closing\n\n\n")
                 return 0.0
 
             # self.logger.info('loss_lb: {}'.format(loss))
+            loss += loss2
             loss.backward()
             optimizer.step()
 
