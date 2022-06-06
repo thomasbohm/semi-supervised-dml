@@ -21,13 +21,15 @@ class GNNModel(nn.Module):
 
         self.proxies = nn.parameter.Parameter(torch.randn((num_proxies, 512))).to(device)
         self.num_proxies = num_proxies
+
+        self.device = device
     
 
     def forward(self, x):
         # nodes = proxies + x
         x = torch.cat([self.proxies, x])
         # connect every sample with every proxy
-        edge_index = self.get_edge_index(x)
+        edge_index = self.get_edge_index(x).to(self.device)
         
         for layer in self.layers:
             if isinstance(layer, geom_nn.MessagePassing):
