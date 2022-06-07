@@ -269,9 +269,11 @@ class ResNet(nn.Module):
         
         #x = self.layer4(x, val)
         x = checkpoint.checkpoint(self.layer4, x, val)
-        
+        print('before maxpool')
+        print(x.shape)
         x = self.avgpool(x)
-
+        print('after maxpool')
+        print(x.shape)
         fc7 = torch.flatten(x, 1)
 
         if self.red:
