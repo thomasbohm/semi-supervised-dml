@@ -9,15 +9,15 @@ class GNNModel(nn.Module):
         super().__init__()
 
         self.layers = nn.ModuleList([
-            geom_nn.GATConv(512, 512),
+            geom_nn.GATConv(512, 512, heads=2),
             nn.ReLU(),
             nn.Dropout(),    
-            geom_nn.GATConv(512, 512),
-            nn.ReLU(),
-            nn.Dropout(),                             
+            #geom_nn.GATConv(512, 512),
+            #nn.ReLU(),
+            #nn.Dropout(),
         ])
 
-        self.fc = nn.Linear(512, 100)
+        self.fc = nn.Linear(1024, 100)
 
         self.proxies = nn.parameter.Parameter(torch.randn((num_proxies, 512))).to(device)
         self.num_proxies = num_proxies
