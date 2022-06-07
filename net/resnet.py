@@ -179,7 +179,7 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=last,
                                        dilate=replace_stride_with_dilation[2])
         
-        self.avgpool = nn.AdaptiveMaxPool2d((1, 1))
+        self.maxpool = nn.MaxPool2d(8)
         
         if red == 1:
             self.red = None
@@ -269,11 +269,9 @@ class ResNet(nn.Module):
         
         #x = self.layer4(x, val)
         x = checkpoint.checkpoint(self.layer4, x, val)
-        print('before maxpool')
-        print(x.shape)
-        x = self.avgpool(x)
-        print('after maxpool')
-        print(x.shape)
+
+        x = self.maxpool(x)
+
         fc7 = torch.flatten(x, 1)
 
         if self.red:

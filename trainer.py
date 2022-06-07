@@ -383,7 +383,7 @@ def seed_everything(seed=42):
     torch.backends.cudnn.determinstic = True
     torch.backends.cudnn.benchmark = False
 
-    torch.use_deterministic_algorithms(True, warn_only=True)
+    torch.use_deterministic_algorithms(True)
     torch.set_num_threads(1)
 
     
