@@ -17,7 +17,6 @@ from dataset.ssl_dataset import create_datasets, get_transforms
 from net.load_net import load_resnet50
 from evaluation.utils import Evaluator
 from RAdam import RAdam
-from net.losses import CrossEntropyLabelSmooth
 
 
 class Trainer():
@@ -60,10 +59,11 @@ class Trainer():
 
             model, embed_size = load_resnet50(
                 num_classes=self.config['dataset']['train_classes'],
-                pretrained_path=self.config['model']['pretrained_path'],
-                reduction=self.config['model']['reduction']
+                pretrained_path=self.config['resnet']['pretrained_path'],
+                reduction=self.config['resnet']['reduction'],
+                neck=self.config['resnet']['bottleneck']
             )
-            self.logger.info('Loaded resnet50 with embedding dim {}.'.format(embed_size))
+            self.logger.info('Loaded resnet50 with embedding dim {}.\n{}'.format(embed_size, model))
 
             if torch.cuda.device_count() > 1:
                 self.logger.info('Using {} GPUs'.format(torch.cuda.device_count()))
@@ -75,7 +75,7 @@ class Trainer():
                               weight_decay=self.config['training']['weight_decay'])
             
             if 'lsce' in self.config['training']['loss'].split('_'):
-                loss_fn_lb = CrossEntropyLabelSmooth(self.config['dataset']['train_classes'], self.device)
+                loss_fn_lb = nn.CrossEntropyLoss(label_smoothing=0.1)
             else:
                 loss_fn_lb = nn.CrossEntropyLoss()
 

@@ -1,8 +1,9 @@
 mode: "train"
 
-model:
+resnet:
   pretrained_path: "no"
   reduction: 4
+  bottleneck: False
 
 dataset:
   path: "data/Stanford_Online_Products"
