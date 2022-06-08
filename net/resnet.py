@@ -179,7 +179,7 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=last,
                                        dilate=replace_stride_with_dilation[2])
         
-        self.maxpool = nn.MaxPool2d(8)
+        self.maxpool2 = nn.MaxPool2d(8)
         
         if red == 1:
             self.red = None
@@ -270,7 +270,7 @@ class ResNet(nn.Module):
         #x = self.layer4(x, val)
         x = checkpoint.checkpoint(self.layer4, x, val)
         
-        x = self.maxpool(x)
+        x = self.maxpool2(x)
 
         fc7 = torch.flatten(x, 1)
 
