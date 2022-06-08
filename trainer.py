@@ -23,22 +23,30 @@ class Trainer():
     def __init__(self, config):
         self.config = config
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        logging_level = logging.INFO if config['mode'] != 'hyper' else logging.ERROR
+        if config['mode'] != 'hyper':
+            logging_level = logging.INFO
+        else:
+            logging_level = logging.ERROR
         self.evaluator = Evaluator(self.device, logging_level=logging_level)
         self.logger = self.get_logger()
-        
+
         date = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-        self.filename = '{}_{}_{}.pth'.format(self.config['dataset']['name'],
-                                              self.config['dataset']['labeled_fraction'] * 100,
-                                              self.config['mode'])
-        self.results_dir = './results/{}/{}'.format(config['dataset']['name'], date)
+        self.filename = '{}_{}_{}.pth'.format(
+            self.config['dataset']['name'],
+            self.config['dataset']['labeled_fraction'] * 100,
+            self.config['mode']
+        )
+        self.results_dir = './results/{}/{}'.format(
+            config['dataset']['name'],
+            date
+        )
         if not osp.isdir(self.results_dir):
             os.makedirs(self.results_dir)
         self.logger.info('Results saved to "{}"'.format(self.results_dir))
 
         self.labeled_only = self.config['training']['loss'] == 'ce' or \
-                            self.config['training']['loss'] == 'lsce' or \
-                            self.config['dataset']['labeled_fraction'] >= 1.0
+            self.config['training']['loss'] == 'lsce' or \
+            self.config['dataset']['labeled_fraction'] >= 1.0
 
     def start(self):
         self.logger.info('Device: {}'.format(self.device))
@@ -53,7 +61,9 @@ class Trainer():
                 self.logger.info('Search run: {}/{}'.format(run, num_runs))
                 self.sample_hypers()
 
-            self.logger.info("Config:\n{}".format(json.dumps(self.config, indent=4)))
+            self.logger.info("Config:\n{}".format(
+                json.dumps(self.config, indent=4)
+            ))
 
             seed_everything()
 
@@ -66,14 +76,18 @@ class Trainer():
             self.logger.info('Loaded resnet50 with embedding dim {}.'.format(embed_size))
 
             if torch.cuda.device_count() > 1:
-                self.logger.info('Using {} GPUs'.format(torch.cuda.device_count()))
+                self.logger.info('Using {} GPUs'.format(
+                    torch.cuda.device_count()
+                ))
                 model = nn.DataParallel(model)
             model = model.to(self.device)
 
-            optimizer = RAdam(model.parameters(),
-                              lr=self.config['training']['lr'],
-                              weight_decay=self.config['training']['weight_decay'])
-            
+            optimizer = RAdam(
+                model.parameters(),
+                lr=self.config['training']['lr'],
+                weight_decay=self.config['training']['weight_decay']
+            )
+
             if 'lsce' in self.config['training']['loss'].split('_'):
                 loss_fn_lb = nn.CrossEntropyLoss(label_smoothing=0.1)
             else:
@@ -83,7 +97,10 @@ class Trainer():
             if 'l2' in self.config['training']['loss'].split('_'):
                 loss_fn_ulb = nn.MSELoss()
             elif 'kl' in self.config['training']['loss'].split('_'):
-                loss_fn_ulb = nn.KLDivLoss(log_target=True, reduction='batchmean')
+                loss_fn_ulb = nn.KLDivLoss(
+                    log_target=True,
+                    reduction='batchmean'
+                )
 
             dl_tr_lb, dl_tr_ulb, dl_ev = self.get_dataloaders_ssl(
                 self.config['dataset']['path'],
@@ -107,20 +124,32 @@ class Trainer():
                     best_recall_at_1 = recall_at_1
                     best_hypers = copy.deepcopy(self.config)
 
-                    filename = '{}_{}_best.pth'.format(self.config['dataset']['name'],
-                                                       self.config['dataset']['labeled_fraction'] * 100)
+                    filename = '{}_{}_best.pth'.format(
+                        self.config['dataset']['name'],
+                        self.config['dataset']['labeled_fraction'] * 100
+                    )
                     os.rename(osp.join(self.results_dir, self.filename),
                               osp.join(self.results_dir, filename))
             else:
                 self.test_run(model, dl_ev)
-        
+
         if hyper_search:
             self.logger.info('Best Run: {}'.format(best_run))
             self.logger.info('Best R@1: {:.4}'.format(best_recall_at_1 * 100))
-            self.logger.info('Best Hyperparameters:\n{}'.format(json.dumps(best_hypers, indent=4)))
+            self.logger.info('Best Hyperparameters:\n{}'.format(
+                json.dumps(best_hypers, indent=4)
+            ))
 
-
-    def train_run(self, model, optimizer, loss_fn_lb, loss_fn_ulb, dl_tr_lb, dl_tr_ulb, dl_ev):
+    def train_run(
+        self,
+        model,
+        optimizer,
+        loss_fn_lb,
+        loss_fn_ulb,
+        dl_tr_lb,
+        dl_tr_ulb,
+        dl_ev
+    ):
         scores = []
         best_epoch = -1
         best_recall_at_1 = 0
@@ -133,10 +162,21 @@ class Trainer():
                 self.reduce_lr(model, optimizer)
 
             if self.labeled_only:
-                self.train_epoch_without_ulb(dl_tr_lb, model, optimizer, loss_fn_lb)
+                self.train_epoch_without_ulb(
+                    dl_tr_lb,
+                    model,
+                    optimizer,
+                    loss_fn_lb
+                )
             else:
-                self.train_epoch_with_ulb(dl_tr_lb, dl_tr_ulb, model, optimizer, loss_fn_lb, loss_fn_ulb)
-
+                self.train_epoch_with_ulb(
+                    dl_tr_lb,
+                    dl_tr_ulb,
+                    model,
+                    optimizer,
+                    loss_fn_lb,
+                    loss_fn_ulb
+                )
             eval_start = time.time()
             with torch.no_grad():
                 recalls, nmi = self.evaluator.evaluate(
@@ -150,7 +190,10 @@ class Trainer():
                 if recalls[0] > best_recall_at_1:
                     best_recall_at_1 = recalls[0]
                     best_epoch = epoch
-                    torch.save(model.state_dict(), osp.join(self.results_dir, self.filename))
+                    torch.save(
+                        model.state_dict(),
+                        osp.join(self.results_dir, self.filename)
+                    )
 
             self.evaluator.logger.info('Eval took {:.0f}s'.format(time.time() - eval_start))
             self.logger.info('Epoch took {:.0f}s'.format(time.time() - start))
@@ -163,21 +206,23 @@ class Trainer():
                 ['{:.1f}'.format(100 * r) for r in recalls],
                 100 * nmi)
             )
-        self.logger.info('BEST R@1 (EPOCH {}): {:.3f}'.format(best_epoch, best_recall_at_1))
+        self.logger.info('BEST R@1 (EPOCH {}): {:.3f}'.format(
+            best_epoch,
+            best_recall_at_1
+        ))
 
         return best_recall_at_1
 
-
     def train_epoch_without_ulb(self, dl_tr_lb, model, optimizer, loss_fn_lb):
+        temp = self.config['training']['temperature']
         for (x, y) in dl_tr_lb:
             optimizer.zero_grad()
 
             x = x.to(self.device)
             y = y.to(self.device)
             preds, embeddings = model(x, output_option='norm', val=False)
+            loss = loss_fn_lb(preds / temp, y)
 
-            loss = loss_fn_lb(preds / self.config['training']['temperature'], y)
-            
             if torch.isnan(loss):
                 self.logger.error("We have NaN numbers, closing\n\n\n")
                 return 0.0
@@ -186,8 +231,16 @@ class Trainer():
             loss.backward()
             optimizer.step()
 
-
-    def train_epoch_with_ulb(self, dl_tr_lb, dl_tr_ulb, model, optimizer, loss_fn_lb, loss_fn_ulb):
+    def train_epoch_with_ulb(
+        self,
+        dl_tr_lb,
+        dl_tr_ulb,
+        model,
+        optimizer,
+        loss_fn_lb,
+        loss_fn_ulb
+    ):
+        temp = self.config['training']['temperature']
         for (x_lb, y_lb), (x_ulb_w, x_ulb_s, _) in zip(dl_tr_lb, dl_tr_ulb):
             optimizer.zero_grad()
 
@@ -197,7 +250,7 @@ class Trainer():
 
             preds_lb = preds[:x_lb.shape[0]]
             loss_lb = loss_fn_lb(
-                preds_lb / self.config['training']['temperature'],
+                preds_lb / temp,
                 y_lb.to(self.device)
             )
 
@@ -214,7 +267,7 @@ class Trainer():
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
 
             # loss_ulb *= epoch / self.config['training']['epochs']
-            
+
             if torch.isnan(loss_lb) or torch.isnan(loss_ulb):
                 self.logger.error("We have NaN numbers, closing\n\n\n")
                 return 0.0
@@ -224,7 +277,6 @@ class Trainer():
             loss.backward()
             optimizer.step()
 
-    
     def test_run(self, model, dl_ev):
         with torch.no_grad():
             recalls, nmi = self.evaluator.evaluate(
@@ -235,7 +287,6 @@ class Trainer():
             )
             return recalls, nmi
 
-
     def get_logger(self):
         logger = logging.getLogger('Trainer')
         logger.setLevel(logging.INFO)
@@ -244,9 +295,14 @@ class Trainer():
         ch.setFormatter(formatter)
         logger.addHandler(ch)
         return logger
-    
 
-    def get_dataloaders_ssl(self, data_path, train_classes, labeled_fraction, num_workers):
+    def get_dataloaders_ssl(
+        self,
+        data_path,
+        train_classes,
+        labeled_fraction,
+        num_workers
+    ):
         trans_train, trans_train_strong, trans_eval = get_transforms(self.config['dataset']['random_erasing'])
         self.logger.info('Train transform:\n{}'.format(trans_train))
         self.logger.info('Train transform strong:\n{}'.format(trans_train_strong))
@@ -272,7 +328,7 @@ class Trainer():
 
         batch_size_lb = class_per_batch * elements_per_class
         batch_size_ulb = self.config['training']['ulb_batch_size_factor'] * batch_size_lb
-        
+
         if not self.labeled_only:
             num_batches = len(dset_ulb) // batch_size_ulb
         else:
@@ -337,7 +393,6 @@ class Trainer():
             generator=g
         )
         return dl_train_lb, dl_train_ulb, dl_eval
-        
 
     def sample_hypers(self):
         random.seed()
@@ -353,10 +408,10 @@ class Trainer():
         }
         self.config['training'].update(config)
 
-    
     def reduce_lr(self, model, optimizer):
         self.logger.info("Reducing learning rate:")
-        model.load_state_dict(torch.load(osp.join(self.results_dir, self.filename)))
+        path = osp.join(self.results_dir, self.filename)
+        model.load_state_dict(torch.load(path))
         for g in optimizer.param_groups:
             self.logger.info('{} -> {}'.format(g['lr'], g['lr'] / 10))
             g['lr'] /= 10.
@@ -365,7 +420,7 @@ class Trainer():
 def seed_everything(seed=42):
     random.seed(seed)
     np.random.seed(seed)
-    
+
     os.environ["PYTHONHASHSEED"] = f"{seed}"
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
@@ -377,7 +432,7 @@ def seed_everything(seed=42):
     torch.use_deterministic_algorithms(True)
     torch.set_num_threads(1)
 
-    
+
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
