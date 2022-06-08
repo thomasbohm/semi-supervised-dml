@@ -63,7 +63,7 @@ class Trainer():
                 reduction=self.config['resnet']['reduction'],
                 neck=self.config['resnet']['bottleneck']
             )
-            self.logger.info('Loaded resnet50 with embedding dim {}.\n{}'.format(embed_size, model))
+            self.logger.info('Loaded resnet50 with embedding dim {}.'.format(embed_size))
 
             if torch.cuda.device_count() > 1:
                 self.logger.info('Using {} GPUs'.format(torch.cuda.device_count()))
@@ -247,7 +247,7 @@ class Trainer():
     
 
     def get_dataloaders_ssl(self, data_path, train_classes, labeled_fraction, num_workers):
-        trans_train, trans_train_strong, trans_eval = get_transforms()
+        trans_train, trans_train_strong, trans_eval = get_transforms(self.config['dataset']['random_erasing'])
         self.logger.info('Train transform:\n{}'.format(trans_train))
         self.logger.info('Train transform strong:\n{}'.format(trans_train_strong))
         self.logger.info('Eval transform:\n{}'.format(trans_eval))
