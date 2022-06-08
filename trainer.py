@@ -37,8 +37,8 @@ class Trainer():
         self.logger.info('Results saved to "{}"'.format(self.results_dir))
 
         self.labeled_only = self.config['training']['loss'] == 'ce' or \
+                            self.config['training']['loss'] == 'lsce' or \
                             self.config['dataset']['labeled_fraction'] >= 1.0
-    
 
     def start(self):
         self.logger.info('Device: {}'.format(self.device))
