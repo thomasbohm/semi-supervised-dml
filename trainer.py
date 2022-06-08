@@ -17,6 +17,7 @@ from dataset.ssl_dataset import create_datasets, get_transforms
 from net.load_net import load_resnet50
 from evaluation.utils import Evaluator
 from RAdam import RAdam
+from net.losses import CrossEntropyLabelSmooth
 
 
 class Trainer():
@@ -73,7 +74,10 @@ class Trainer():
                               lr=self.config['training']['lr'],
                               weight_decay=self.config['training']['weight_decay'])
             
-            loss_fn_lb = nn.CrossEntropyLoss()
+            if 'lsce' in self.config['training']['loss'].split('_'):
+                loss_fn_lb = CrossEntropyLabelSmooth(self.config['dataset']['train_classes'], self.device)
+            else:
+                loss_fn_lb = nn.CrossEntropyLoss()
 
             loss_fn_ulb = None
             if 'l2' in self.config['training']['loss'].split('_'):
