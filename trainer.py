@@ -1,21 +1,22 @@
+import copy
+import json
 import logging
+import os
+import os.path as osp
+import random
 import time
+from datetime import datetime
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import os
-import os.path as osp
-import random
-import json
-import copy
 from torch.utils.data import DataLoader, RandomSampler
-from dataset.m_per_class_sampler import MPerClassSampler
-from datetime import datetime
-from dataset.ssl_dataset import create_datasets, get_transforms
 
-from net.load_net import load_resnet50
+from dataset.m_per_class_sampler import MPerClassSampler
+from dataset.ssl_dataset import create_datasets, get_transforms
 from evaluation.utils import Evaluator
+from net.load_net import load_resnet50
 from RAdam import RAdam
 
 
@@ -49,7 +50,7 @@ class Trainer():
             self.config['dataset']['labeled_fraction'] >= 1.0
 
     def start(self):
-        self.logger.info('Device: {}'.format(self.device))
+        self.logger.info(f'Device: {self.device}')
         hyper_search = self.config['mode'] == 'hyper'
         num_runs = 30 if hyper_search else 1
 
