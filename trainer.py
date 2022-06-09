@@ -6,11 +6,13 @@ import os.path as osp
 import random
 import time
 from datetime import datetime
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim import Optimizer
 from torch.utils.data import DataLoader, RandomSampler
 
 from dataset.m_per_class_sampler import MPerClassSampler
@@ -21,7 +23,7 @@ from RAdam import RAdam
 
 
 class Trainer():
-    def __init__(self, config):
+    def __init__(self, config: dict):
         self.config = config
         self.device = torch.device(
             'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -76,16 +78,15 @@ class Trainer():
                 reduction=self.config['resnet']['reduction'],
                 neck=self.config['resnet']['bottleneck']
             )
-            self.logger.info(
-                'Loaded resnet50 with embedding dim {}.'.format(embed_size)
-            )
-
             if torch.cuda.device_count() > 1:
                 self.logger.info('Using {} GPUs'.format(
                     torch.cuda.device_count()
                 ))
-                model = nn.DataParallel(model)
+                model = nn.parallel.DataParallel(model)
             model = model.to(self.device)
+            self.logger.info(
+                'Loaded resnet50 with embedding dim {}.'.format(embed_size)
+            )
 
             optimizer = RAdam(
                 model.parameters(),
@@ -115,6 +116,7 @@ class Trainer():
             )
 
             if self.config['mode'] != 'test':
+                assert dl_tr_lb
                 recall_at_1 = self.train_run(
                     model,
                     optimizer,
@@ -147,13 +149,13 @@ class Trainer():
 
     def train_run(
         self,
-        model,
-        optimizer,
-        loss_fn_lb,
-        loss_fn_ulb,
-        dl_tr_lb,
-        dl_tr_ulb,
-        dl_ev
+        model: nn.Module,
+        optimizer: Optimizer,
+        loss_fn_lb: nn.CrossEntropyLoss,
+        loss_fn_ulb: Optional[Union[nn.MSELoss, nn.KLDivLoss]],
+        dl_tr_lb: DataLoader,
+        dl_tr_ulb: Optional[DataLoader],
+        dl_ev: DataLoader
     ):
         scores = []
         best_epoch = -1
@@ -176,6 +178,7 @@ class Trainer():
                     loss_fn_lb
                 )
             else:
+                assert dl_tr_ulb and loss_fn_ulb
                 self.train_epoch_with_ulb(
                     dl_tr_lb,
                     dl_tr_ulb,
@@ -221,7 +224,13 @@ class Trainer():
 
         return best_recall_at_1
 
-    def train_epoch_without_ulb(self, dl_tr_lb, model, optimizer, loss_fn_lb):
+    def train_epoch_without_ulb(
+        self,
+        dl_tr_lb: DataLoader,
+        model: nn.Module,
+        optimizer: Optimizer,
+        loss_fn_lb: nn.Module
+    ):
         temp = self.config['training']['temperature']
         for (x, y) in dl_tr_lb:
             optimizer.zero_grad()
@@ -241,12 +250,12 @@ class Trainer():
 
     def train_epoch_with_ulb(
         self,
-        dl_tr_lb,
-        dl_tr_ulb,
-        model,
-        optimizer,
-        loss_fn_lb,
-        loss_fn_ulb
+        dl_tr_lb: DataLoader,
+        dl_tr_ulb: DataLoader,
+        model: nn.Module,
+        optimizer: Optimizer,
+        loss_fn_lb: nn.Module,
+        loss_fn_ulb: nn.Module
     ):
         temp = self.config['training']['temperature']
         for (x_lb, y_lb), (x_ulb_w, x_ulb_s, _) in zip(dl_tr_lb, dl_tr_ulb):
@@ -262,21 +271,20 @@ class Trainer():
                 y_lb.to(self.device)
             )
 
+            loss_ulb = None
             if 'l2' in self.config['training']['loss'].split('_'):
-                embeddings_ulb_w = embeddings[x_lb.shape[0]
-                    :x_lb.shape[0] + x_ulb_w.shape[0]]
+                embeddings_ulb_w = embeddings[x_lb.shape[0]                                              :x_lb.shape[0] + x_ulb_w.shape[0]]
                 embeddings_ulb_s = embeddings[x_lb.shape[0] +
                                               x_ulb_w.shape[0]:]
                 loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
 
             elif 'kl' in self.config['training']['loss'].split('_'):
-                preds_ulb_w = preds[x_lb.shape[0]
-                    :x_lb.shape[0] + x_ulb_w.shape[0]]
+                preds_ulb_w = preds[x_lb.shape[0]                                    :x_lb.shape[0] + x_ulb_w.shape[0]]
                 preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
                 preds_ulb_w = F.log_softmax(preds_ulb_w)
                 preds_ulb_s = F.log_softmax(preds_ulb_s)
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
-
+            assert loss_ulb, 'Unlabled loss needs to be either "l2" or "kl"'
             # loss_ulb *= epoch / self.config['training']['epochs']
 
             if torch.isnan(loss_lb) or torch.isnan(loss_ulb):
@@ -289,7 +297,7 @@ class Trainer():
             loss.backward()
             optimizer.step()
 
-    def test_run(self, model, dl_ev):
+    def test_run(self, model: nn.Module, dl_ev: DataLoader):
         with torch.no_grad():
             recalls, nmi = self.evaluator.evaluate(
                 model,
@@ -310,11 +318,11 @@ class Trainer():
 
     def get_dataloaders_ssl(
         self,
-        data_path,
-        train_classes,
-        labeled_fraction,
-        num_workers
-    ):
+        data_path: str,
+        train_classes: int,
+        labeled_fraction: float,
+        num_workers: int
+    ) -> Tuple[Optional[DataLoader], Optional[DataLoader], DataLoader]:
         trans_train, trans_train_strong, trans_eval = get_transforms(
             self.config['dataset']['random_erasing'])
         self.logger.info('Transform (train_weak, train_strong, eval):\n{}\n{}\n{}'.format(
@@ -394,7 +402,8 @@ class Trainer():
             if self.labeled_only:
                 assert len(dl_train_lb) == num_batches
             else:
-                assert len(dl_train_lb) == len(dl_train_ulb) == num_batches
+                assert dl_train_ulb and len(dl_train_lb) == len(
+                    dl_train_ulb) == num_batches
 
         g = torch.Generator()
         g.manual_seed(0)
@@ -423,7 +432,7 @@ class Trainer():
         }
         self.config['training'].update(config)
 
-    def reduce_lr(self, model, optimizer):
+    def reduce_lr(self, model: nn.Module, optimizer: Optimizer):
         self.logger.info("Reducing learning rate:")
         path = osp.join(self.results_dir, self.filename)
         model.load_state_dict(torch.load(path))
@@ -432,7 +441,7 @@ class Trainer():
             g['lr'] /= 10.
 
 
-def seed_everything(seed=42):
+def seed_everything(seed: int = 42):
     random.seed(seed)
     np.random.seed(seed)
 
@@ -448,7 +457,7 @@ def seed_everything(seed=42):
     torch.set_num_threads(1)
 
 
-def seed_worker(worker_id):
+def seed_worker(worker_id: int):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
