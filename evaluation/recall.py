@@ -3,6 +3,7 @@ import numpy as np
 import sklearn.metrics.pairwise
 import torch.functional as F
 
+
 def assign_by_euclidian_at_k(X, T, k, P=None, query=None, gallery=None):
     """ 
     X : [nb_samples x nb_features], e.g. 100 x 64 (embeddings)
@@ -24,7 +25,7 @@ def assign_by_euclidian_at_k(X, T, k, P=None, query=None, gallery=None):
             distances.append(dist)
         distances = np.array(distances)
     # get nearest points
-    indices = np.argsort(distances, axis = 1)[:, 1 : k + 1]
+    indices = np.argsort(distances, axis=1)[:, 1: k + 1]
 
     if P is None:
         return np.array([[T[i] for i in ii] for ii in indices]), T
@@ -44,6 +45,6 @@ def calc_recall_at_k(T, Y, k):
 
 def assign_by_cos_sim(X, T, k):
     cos_sim = F.linear(X, X)
-    Y = T[cos_sim.topk(1 + k)[1][:,1:]]
+    Y = T[cos_sim.topk(1 + k)[1][:, 1:]]
     Y = Y.float().cpu()
     return Y, T

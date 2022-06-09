@@ -72,7 +72,7 @@ class LayerNorm(nn.Module):
         x = x.view(shape)
 
         x = (x - x.mean(dim=-1, keepdim=True)) / (
-                    torch.sqrt(x.var(unbiased=False, dim=-1, keepdim=True) + self.eps))
+            torch.sqrt(x.var(unbiased=False, dim=-1, keepdim=True) + self.eps))
 
         x = x.view(init_shape)
 
@@ -161,4 +161,3 @@ def weights_init_classifier(m):
         nn.init.normal_(m.weight, std=0.001)
         if m.bias:
             nn.init.constant_(m.bias, 0.0)
-

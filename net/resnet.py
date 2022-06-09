@@ -44,7 +44,7 @@ class BasicBlock(nn.Module):
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
                  base_width=64, dilation=1, norm_layer=None):
-        
+
         super(BasicBlock, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
@@ -119,7 +119,7 @@ class Bottleneck(nn.Module):
 
         if self.downsample is not None:
             identity = self.downsample(x)
-        
+
         out += identity
         out = self.relu(out)
 
@@ -131,7 +131,7 @@ class ModuleWrapperIgnores2ndArg(nn.Module):
         super().__init__()
         self.module = module
 
-    def forward(self,x, dummy_arg=None):
+    def forward(self, x, dummy_arg=None):
         assert dummy_arg is not None
         x = self.module(x)
         return x
@@ -157,7 +157,7 @@ class ResNet(nn.Module):
         if len(replace_stride_with_dilation) != 3:
             raise ValueError("replace_stride_with_dilation should be None "
                              "or a 3-element tuple, got {}".format(
-                replace_stride_with_dilation))
+                                 replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
         self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2,
@@ -178,13 +178,14 @@ class ResNet(nn.Module):
 
         self.layer4 = self._make_layer(block, 512, layers[3], stride=last,
                                        dilate=replace_stride_with_dilation[2])
-        
+
         self.maxpool2 = nn.MaxPool2d(8)
-        
+
         if red == 1:
             self.red = None
         else:
-            self.red = nn.Linear(512 * block.expansion, int((512 * block.expansion)/red))
+            self.red = nn.Linear(512 * block.expansion,
+                                 int((512 * block.expansion)/red))
             # print("reduce output dimension resnet by {}".format(red))
         if self.neck:
             self.bottleneck = nn.BatchNorm1d(int((512 * block.expansion)/red))
@@ -255,21 +256,21 @@ class ResNet(nn.Module):
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
-        
+
         # if you dont want to use gradient checkpointing: uncomment first lines, comment second
 
         #x = self.layer1(x, val)
         x = checkpoint.checkpoint(self.layer1, x, val)
-        
+
         #x = self.layer2(x, val)
         x = checkpoint.checkpoint(self.layer2, x, val)
-        
+
         #x = self.layer3(x, val)
         x = checkpoint.checkpoint(self.layer3, x, val)
-        
+
         #x = self.layer4(x, val)
         x = checkpoint.checkpoint(self.layer4, x, val)
-        
+
         x = self.maxpool2(x)
 
         fc7 = torch.flatten(x, 1)
@@ -283,7 +284,7 @@ class ResNet(nn.Module):
             feats_after = fc7
 
         x = self.fc(feats_after)
-        
+
         if output_option == 'norm':
             return x, fc7
         elif output_option == 'plain':
@@ -301,8 +302,8 @@ class ResNet(nn.Module):
 
 def _resnet(arch, block, layers, pretrained, progress, last_stride=0, neck=0,
             red=1, **kwargs):
-    model = ResNet(block, layers, last_stride=last_stride, neck=neck, 
-            red=red, **kwargs)
+    model = ResNet(block, layers, last_stride=last_stride, neck=neck,
+                   red=red, **kwargs)
     if pretrained:
         if not neck:
             state_dict = load_state_dict_from_url(model_urls[arch],

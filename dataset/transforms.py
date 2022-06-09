@@ -1,56 +1,8 @@
-from collections import defaultdict
 import math
 import random
-import PIL
-from torchvision import transforms
-
-def pil_loader(path):
-    with open(path, 'rb') as f:
-        img = PIL.Image.open(f)
-        return img.convert('RGB')
 
 
-def get_list_of_inds(dataset):
-    ddict = defaultdict(list)
-    for idx, label in enumerate(dataset.targets):
-        ddict[label].append(idx)
-
-    list_of_indices_for_each_class = []
-    for key in ddict:
-        list_of_indices_for_each_class.append(ddict[key])
-    return list_of_indices_for_each_class
-
-
-def GL_orig_RE(sz_crop=[384, 128],
-               mean=[0.485, 0.456, 0.406],
-               std=[0.299, 0.224, 0.225],
-               is_train=True,
-               random_erasing=False):
-    sz_resize = 256
-    sz_crop = 227
-    normalize_transform = transforms.Normalize(mean=mean, std=std)
-    
-    if is_train:
-        transform = [
-            transforms.RandomResizedCrop(sz_crop),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize_transform,
-        ]
-        if random_erasing:
-            transform.append(RandomErasing(probability=0.5, mean=(0.4914, 0.4822, 0.4465)))
-        transform = transforms.Compose(transform)
-    else:
-        transform = transforms.Compose([
-            transforms.Resize(sz_resize),
-            transforms.CenterCrop(sz_crop),
-            transforms.ToTensor(),
-            normalize_transform
-        ])
-    return transform
-
-
-class RandomErasing(object):
+class RandomErasing:
     """
     From https://github.com/zhunzhong07/Random-Erasing
     Randomly selects a rectangle region in an image and erases its pixels.
@@ -64,8 +16,14 @@ class RandomErasing(object):
          mean: Erasing value.
     """
 
-    def __init__(self, probability=0.5, sl=0.02, sh=0.4, r1=0.3,
-                 mean=(0.4914, 0.4822, 0.4465)):
+    def __init__(
+        self,
+        probability=0.5,
+        sl=0.02,
+        sh=0.4,
+        r1=0.3,
+        mean=(0.4914, 0.4822, 0.4465)
+    ):
         self.probability = probability
         self.mean = mean
         self.sl = sl
@@ -73,11 +31,10 @@ class RandomErasing(object):
         self.r1 = r1
 
     def __call__(self, img):
-
         if random.uniform(0, 1) >= self.probability:
             return img
 
-        for attempt in range(100):
+        for _ in range(100):
             area = img.size()[1] * img.size()[2]
 
             target_area = random.uniform(self.sl, self.sh) * area
@@ -99,3 +56,6 @@ class RandomErasing(object):
 
         return img
 
+    def __repr__(self) -> str:
+        detail = f'(probability={self.probability}, sl={self.sl}, sh={self.sh}, r1={self.r1}, mean={self.mean})'
+        return f'{self.__class__.__name__}{detail}'

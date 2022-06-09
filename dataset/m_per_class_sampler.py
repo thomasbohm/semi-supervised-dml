@@ -17,7 +17,8 @@ class MPerClassSampler(Sampler):
         if isinstance(dset_targets, torch.Tensor):
             dset_targets = dset_targets.numpy()
         self.m_per_class = int(m)
-        self.batch_size = int(batch_size) if batch_size is not None else batch_size
+        self.batch_size = int(
+            batch_size) if batch_size is not None else batch_size
         self.labels_to_indices = get_labels_to_indices(dset_targets)
         self.labels = list(self.labels_to_indices.keys())
         self.length_of_single_pass = self.m_per_class * len(self.labels)
@@ -47,10 +48,11 @@ class MPerClassSampler(Sampler):
             if self.batch_size is None:
                 curr_label_set = self.labels
             else:
-                curr_label_set = self.labels[: self.batch_size // self.m_per_class]
+                curr_label_set = self.labels[: self.batch_size //
+                                             self.m_per_class]
             for label in curr_label_set:
                 t = self.labels_to_indices[label]
-                idx_list[i : i + self.m_per_class] = np.random.choice(
+                idx_list[i: i + self.m_per_class] = np.random.choice(
                     t,
                     size=self.m_per_class,
                     replace=len(t) < self.m_per_class

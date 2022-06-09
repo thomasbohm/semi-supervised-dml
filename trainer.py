@@ -23,7 +23,9 @@ from RAdam import RAdam
 class Trainer():
     def __init__(self, config):
         self.config = config
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(
+            'cuda:0' if torch.cuda.is_available() else 'cpu'
+        )
         if config['mode'] != 'hyper':
             logging_level = logging.INFO
         else:
@@ -74,7 +76,9 @@ class Trainer():
                 reduction=self.config['resnet']['reduction'],
                 neck=self.config['resnet']['bottleneck']
             )
-            self.logger.info('Loaded resnet50 with embedding dim {}.'.format(embed_size))
+            self.logger.info(
+                'Loaded resnet50 with embedding dim {}.'.format(embed_size)
+            )
 
             if torch.cuda.device_count() > 1:
                 self.logger.info('Using {} GPUs'.format(
@@ -156,7 +160,9 @@ class Trainer():
         best_recall_at_1 = 0
 
         for epoch in range(1, self.config['training']['epochs'] + 1):
-            self.logger.info('EPOCH {}/{}'.format(epoch, self.config['training']['epochs']))
+            self.logger.info(
+                'EPOCH {}/{}'.format(epoch, self.config['training']['epochs'])
+            )
             start = time.time()
 
             if epoch == 30 or epoch == 50:
@@ -196,7 +202,8 @@ class Trainer():
                         osp.join(self.results_dir, self.filename)
                     )
 
-            self.evaluator.logger.info('Eval took {:.0f}s'.format(time.time() - eval_start))
+            self.evaluator.logger.info(
+                'Eval took {:.0f}s'.format(time.time() - eval_start))
             self.logger.info('Epoch took {:.0f}s'.format(time.time() - start))
 
         self.logger.info('-' * 50)
@@ -256,12 +263,15 @@ class Trainer():
             )
 
             if 'l2' in self.config['training']['loss'].split('_'):
-                embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
-                embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
+                embeddings_ulb_w = embeddings[x_lb.shape[0]
+                    :x_lb.shape[0] + x_ulb_w.shape[0]]
+                embeddings_ulb_s = embeddings[x_lb.shape[0] +
+                                              x_ulb_w.shape[0]:]
                 loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
 
             elif 'kl' in self.config['training']['loss'].split('_'):
-                preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                preds_ulb_w = preds[x_lb.shape[0]
+                    :x_lb.shape[0] + x_ulb_w.shape[0]]
                 preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
                 preds_ulb_w = F.log_softmax(preds_ulb_w)
                 preds_ulb_s = F.log_softmax(preds_ulb_s)
@@ -274,7 +284,8 @@ class Trainer():
                 return 0.0
 
             # self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
-            loss = loss_lb + self.config['training']['ulb_loss_weight'] * loss_ulb
+            loss = loss_lb + \
+                self.config['training']['ulb_loss_weight'] * loss_ulb
             loss.backward()
             optimizer.step()
 
@@ -304,9 +315,11 @@ class Trainer():
         labeled_fraction,
         num_workers
     ):
-        trans_train, trans_train_strong, trans_eval = get_transforms(self.config['dataset']['random_erasing'])
+        trans_train, trans_train_strong, trans_eval = get_transforms(
+            self.config['dataset']['random_erasing'])
         self.logger.info('Train transform:\n{}'.format(trans_train))
-        self.logger.info('Train transform strong:\n{}'.format(trans_train_strong))
+        self.logger.info(
+            'Train transform strong:\n{}'.format(trans_train_strong))
         self.logger.info('Eval transform:\n{}'.format(trans_eval))
 
         dset_lb, dset_ulb, dset_eval = create_datasets(
