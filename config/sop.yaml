@@ -19,6 +19,7 @@ training:
   num_classes_iter: 15
   num_elements_class: 6
   temperature: 0.11
-  loss: "ce_l2"
+  loss_lb: "lsce"
+  loss_ulb: ""
   ulb_batch_size_factor: 1
   ulb_loss_weight: 1

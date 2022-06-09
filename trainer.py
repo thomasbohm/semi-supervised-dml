@@ -49,8 +49,8 @@ class Trainer():
             os.makedirs(self.results_dir)
         self.logger.info('Results saved to "{}"'.format(self.results_dir))
 
-        self.labeled_only = self.config['training']['loss'] == 'ce' or \
-            self.config['training']['loss'] == 'lsce' or \
+        self.labeled_only = self.config['training']['loss_ulb'] == 'no' or \
+            self.config['training']['loss_ulb'] == '' or \
             self.config['dataset']['labeled_fraction'] >= 1.0
 
     def start(self):
@@ -94,15 +94,15 @@ class Trainer():
                 weight_decay=self.config['training']['weight_decay']
             )
 
-            if 'lsce' in self.config['training']['loss'].split('_'):
+            if self.config['training']['loss_lb'] == 'lsce':
                 loss_fn_lb = nn.CrossEntropyLoss(label_smoothing=0.1)
             else:
                 loss_fn_lb = nn.CrossEntropyLoss()
 
             loss_fn_ulb = None
-            if 'l2' in self.config['training']['loss'].split('_'):
+            if self.config['training']['loss_ulb'] == 'l2':
                 loss_fn_ulb = nn.MSELoss()
-            elif 'kl' in self.config['training']['loss'].split('_'):
+            elif self.config['training']['loss_ulb'] == 'kl':
                 loss_fn_ulb = nn.KLDivLoss(
                     log_target=True,
                     reduction='batchmean'
@@ -272,14 +272,14 @@ class Trainer():
             )
 
             loss_ulb = None
-            if 'l2' in self.config['training']['loss'].split('_'):
-                embeddings_ulb_w = embeddings[x_lb.shape[0]                                              :x_lb.shape[0] + x_ulb_w.shape[0]]
+            if self.config['training']['loss_ulb'] == 'l2':
+                embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
                 embeddings_ulb_s = embeddings[x_lb.shape[0] +
                                               x_ulb_w.shape[0]:]
                 loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
 
-            elif 'kl' in self.config['training']['loss'].split('_'):
-                preds_ulb_w = preds[x_lb.shape[0]                                    :x_lb.shape[0] + x_ulb_w.shape[0]]
+            elif self.config['training']['loss_ulb'] == 'kl':
+                preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
                 preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
                 preds_ulb_w = F.log_softmax(preds_ulb_w)
                 preds_ulb_s = F.log_softmax(preds_ulb_s)
