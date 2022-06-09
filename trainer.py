@@ -302,7 +302,7 @@ class Trainer():
     def get_logger(self):
         logger = logging.getLogger('Trainer')
         logger.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s:%(name)s: %(message)s')
+        formatter = logging.Formatter('%(asctime)s: %(message)s')
         ch = logging.StreamHandler()
         ch.setFormatter(formatter)
         logger.addHandler(ch)
@@ -317,10 +317,11 @@ class Trainer():
     ):
         trans_train, trans_train_strong, trans_eval = get_transforms(
             self.config['dataset']['random_erasing'])
-        self.logger.info('Train transform:\n{}'.format(trans_train))
-        self.logger.info(
-            'Train transform strong:\n{}'.format(trans_train_strong))
-        self.logger.info('Eval transform:\n{}'.format(trans_eval))
+        self.logger.info('Transform (train_weak, train_strong, eval):\n{}\n{}\n{}'.format(
+            trans_train,
+            trans_train_strong,
+            trans_eval
+        ))
 
         dset_lb, dset_ulb, dset_eval = create_datasets(
             data_path,

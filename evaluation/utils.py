@@ -12,7 +12,7 @@ class Evaluator():
 
         self.logger = logging.getLogger('Evaluator')
         self.logger.setLevel(logging_level)
-        formatter = logging.Formatter('%(asctime)s:%(name)s: %(message)s')
+        formatter = logging.Formatter('%(asctime)s: %(message)s')
         ch = logging.StreamHandler()
         ch.setFormatter(formatter)
         self.logger.addHandler(ch)
