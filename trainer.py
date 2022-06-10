@@ -366,8 +366,8 @@ class Trainer():
                 batch_size=batch_size_lb,
                 length_before_new_iter=batch_size_lb * num_batches
             )
-            g = torch.Generator()
-            g.manual_seed(0)
+            # g = torch.Generator()
+            # g.manual_seed(0)
             dl_train_lb = DataLoader(
                 dset_lb,
                 batch_size=batch_size_lb,
@@ -375,8 +375,8 @@ class Trainer():
                 num_workers=num_workers,
                 drop_last=True,
                 pin_memory=True,
-                worker_init_fn=seed_worker,
-                generator=g
+                # worker_init_fn=seed_worker,
+                # generator=g
             )
             if not self.labeled_only:
                 sampler_ulb = RandomSampler(
@@ -384,8 +384,8 @@ class Trainer():
                     replacement=True,
                     num_samples=batch_size_ulb * num_batches
                 )
-                g = torch.Generator()
-                g.manual_seed(0)
+                # g = torch.Generator()
+                # g.manual_seed(0)
                 dl_train_ulb = DataLoader(
                     dset_ulb,
                     batch_size=batch_size_ulb,
@@ -393,8 +393,8 @@ class Trainer():
                     num_workers=num_workers,
                     drop_last=True,
                     pin_memory=True,
-                    worker_init_fn=seed_worker,
-                    generator=g
+                    # worker_init_fn=seed_worker,
+                    # generator=g
                 )
             self.logger.info('Batch size labeled:   {}'.format(batch_size_lb))
             self.logger.info('Batch size unlabeled: {}'.format(batch_size_ulb))
@@ -405,16 +405,16 @@ class Trainer():
                 assert dl_train_ulb and len(dl_train_lb) == len(
                     dl_train_ulb) == num_batches
 
-        g = torch.Generator()
-        g.manual_seed(0)
+        # g = torch.Generator()
+        # g.manual_seed(0)
         dl_eval = DataLoader(
             dset_eval,
             batch_size=batch_size_lb,
             shuffle=False,
             num_workers=1,
             pin_memory=True,
-            worker_init_fn=seed_worker,
-            generator=g
+            # worker_init_fn=seed_worker,
+            # generator=g
         )
         return dl_train_lb, dl_train_ulb, dl_eval
 
