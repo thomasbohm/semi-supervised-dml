@@ -15,7 +15,7 @@ def cluster_by_kmeans(X, nb_clusters):
             x_new.append(v["feats"].unsqueeze(0))
         X = torch.cat(x_new, dim=0).cpu()
         print(X.shape)
-    return sklearn.cluster.KMeans(nb_clusters).fit(X).labels_
+    return sklearn.cluster.KMeans(nb_clusters, random_state=42).fit(X).labels_
 
 
 def calc_normalized_mutual_information(ys, xs_clustered):
