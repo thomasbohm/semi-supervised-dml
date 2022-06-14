@@ -185,7 +185,8 @@ class Trainer():
                     model,
                     optimizer,
                     loss_fn_lb,
-                    loss_fn_ulb
+                    loss_fn_ulb,
+                    epoch
                 )
             eval_start = time.time()
             with torch.no_grad():
@@ -255,7 +256,8 @@ class Trainer():
         model: nn.Module,
         optimizer: Optimizer,
         loss_fn_lb: nn.Module,
-        loss_fn_ulb: nn.Module
+        loss_fn_ulb: nn.Module,
+        epoch: int
     ):
         temp = self.config['training']['temperature']
         for (x_lb, y_lb), (x_ulb_w, x_ulb_s, _) in zip(dl_tr_lb, dl_tr_ulb):
@@ -273,19 +275,20 @@ class Trainer():
 
             loss_ulb = None
             if self.config['training']['loss_ulb'] == 'l2':
-                embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                embeddings_ulb_w = embeddings[x_lb.shape[0]
+                    :x_lb.shape[0] + x_ulb_w.shape[0]]
                 embeddings_ulb_s = embeddings[x_lb.shape[0] +
                                               x_ulb_w.shape[0]:]
                 loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
 
             elif self.config['training']['loss_ulb'] == 'kl':
-                preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                preds_ulb_w = preds[x_lb.shape[0]                                    :x_lb.shape[0] + x_ulb_w.shape[0]]
                 preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
                 preds_ulb_w = F.log_softmax(preds_ulb_w)
                 preds_ulb_s = F.log_softmax(preds_ulb_s)
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
             assert loss_ulb, 'Unlabled loss needs to be either "l2" or "kl"'
-            # loss_ulb *= epoch / self.config['training']['epochs']
+            loss_ulb *= epoch / self.config['training']['epochs']
 
             if torch.isnan(loss_lb) or torch.isnan(loss_ulb):
                 self.logger.error("We have NaN numbers, closing\n\n\n")
@@ -427,7 +430,7 @@ class Trainer():
             'num_elements_class': random.randint(3, 9),
             'temperature': random.random(),
             'epochs': 40,
-            'ulb_loss_weight': random.random(),
+            'ulb_loss_weight': random.randint(1, 10),
             # 'ulb_batch_size_factor': random.randint(1, 8)
         }
         self.config['training'].update(config)
