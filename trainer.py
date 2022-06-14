@@ -275,14 +275,14 @@ class Trainer():
 
             loss_ulb = None
             if self.config['training']['loss_ulb'] == 'l2':
-                embeddings_ulb_w = embeddings[x_lb.shape[0]
-                    :x_lb.shape[0] + x_ulb_w.shape[0]]
-                embeddings_ulb_s = embeddings[x_lb.shape[0] +
-                                              x_ulb_w.shape[0]:]
-                loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
+                embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
+                preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
+                loss_ulb = loss_fn_ulb(preds_ulb_w, preds_ulb_s)
 
             elif self.config['training']['loss_ulb'] == 'kl':
-                preds_ulb_w = preds[x_lb.shape[0]                                    :x_lb.shape[0] + x_ulb_w.shape[0]]
+                preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
                 preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
                 preds_ulb_w = F.log_softmax(preds_ulb_w)
                 preds_ulb_s = F.log_softmax(preds_ulb_s)
