@@ -277,9 +277,7 @@ class Trainer():
             if self.config['training']['loss_ulb'] == 'l2':
                 embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
                 embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
-                preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
-                preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
-                loss_ulb = loss_fn_ulb(preds_ulb_w, preds_ulb_s)
+                loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
 
             elif self.config['training']['loss_ulb'] == 'kl':
                 preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
@@ -369,8 +367,6 @@ class Trainer():
                 batch_size=batch_size_lb,
                 length_before_new_iter=batch_size_lb * num_batches
             )
-            # g = torch.Generator()
-            # g.manual_seed(0)
             dl_train_lb = DataLoader(
                 dset_lb,
                 batch_size=batch_size_lb,
@@ -378,8 +374,6 @@ class Trainer():
                 num_workers=num_workers,
                 drop_last=True,
                 pin_memory=True,
-                # worker_init_fn=seed_worker,
-                # generator=g
             )
             if not self.labeled_only:
                 sampler_ulb = RandomSampler(
@@ -387,8 +381,6 @@ class Trainer():
                     replacement=True,
                     num_samples=batch_size_ulb * num_batches
                 )
-                # g = torch.Generator()
-                # g.manual_seed(0)
                 dl_train_ulb = DataLoader(
                     dset_ulb,
                     batch_size=batch_size_ulb,
@@ -396,8 +388,6 @@ class Trainer():
                     num_workers=num_workers,
                     drop_last=True,
                     pin_memory=True,
-                    # worker_init_fn=seed_worker,
-                    # generator=g
                 )
             self.logger.info('Batch size labeled:   {}'.format(batch_size_lb))
             self.logger.info('Batch size unlabeled: {}'.format(batch_size_ulb))
@@ -408,16 +398,12 @@ class Trainer():
                 assert dl_train_ulb and len(dl_train_lb) == len(
                     dl_train_ulb) == num_batches
 
-        # g = torch.Generator()
-        # g.manual_seed(0)
         dl_eval = DataLoader(
             dset_eval,
             batch_size=batch_size_lb,
             shuffle=False,
             num_workers=1,
             pin_memory=True,
-            # worker_init_fn=seed_worker,
-            # generator=g
         )
         return dl_train_lb, dl_train_ulb, dl_eval
 
@@ -430,7 +416,7 @@ class Trainer():
             'num_elements_class': random.randint(3, 9),
             'temperature': random.random(),
             'epochs': 40,
-            'ulb_loss_weight': random.randint(1, 10),
+            # 'ulb_loss_weight': random.randint(1, 10),
             # 'ulb_batch_size_factor': random.randint(1, 8)
         }
         self.config['training'].update(config)
