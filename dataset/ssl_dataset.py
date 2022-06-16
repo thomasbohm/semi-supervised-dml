@@ -2,7 +2,6 @@ import math
 import os
 import random
 from collections import defaultdict
-from cv2 import magnitude
 
 from torch.utils.data import Dataset, Subset
 from torchvision import transforms
