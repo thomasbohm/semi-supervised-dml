@@ -325,7 +325,10 @@ class Trainer():
         num_workers: int
     ) -> Tuple[Optional[DataLoader], Optional[DataLoader], DataLoader]:
         trans_train, trans_train_strong, trans_eval = get_transforms(
-            self.config['dataset']['random_erasing'])
+            self.config['dataset']['random_erasing'],
+            self.config['dataset']['randaugment_num_ops'],
+            self.config['dataset']['randaugment_magnitude']
+        )
         self.logger.info('Transform (train_weak, train_strong, eval):\n{}\n{}\n{}'.format(
             trans_train,
             trans_train_strong,
@@ -409,7 +412,7 @@ class Trainer():
 
     def sample_hypers(self):
         random.seed()
-        config = {
+        train_config = {
             'lr': 10 ** random.uniform(-5, -3),
             'weight_decay': 10 ** random.uniform(-15, -6),
             # 'num_classes_iter': random.randint(6, 15),
@@ -419,7 +422,13 @@ class Trainer():
             # 'ulb_loss_weight': random.randint(1, 10),
             # 'ulb_batch_size_factor': random.randint(1, 8)
         }
-        self.config['training'].update(config)
+        self.config['training'].update(train_config)
+        
+        dataset_config = {
+            'randaugment_num_ops': random.randint(1, 3),
+            'randaugment_magnitude': random.randint(5, 15)
+        }
+        self.config['dataset'].update(dataset_config)
 
     def reduce_lr(self, model: nn.Module, optimizer: Optimizer):
         self.logger.info("Reducing learning rate:")

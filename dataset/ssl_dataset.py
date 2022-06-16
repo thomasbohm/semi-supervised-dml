@@ -2,6 +2,7 @@ import math
 import os
 import random
 from collections import defaultdict
+from cv2 import magnitude
 
 from torch.utils.data import Dataset, Subset
 from torchvision import transforms
@@ -64,7 +65,7 @@ def split_dataset(root, train_labels, labeled_fraction):
     return lb_dset, ulb_dset, eval_dset
 
 
-def get_transforms(random_erasing):
+def get_transforms(random_erasing: bool, randaugment_num_ops: int, randaugment_magnitude: int):
     mean = [0.485, 0.456, 0.406]
     std = [0.299, 0.224, 0.225]
     sz_resize = 256
@@ -78,7 +79,7 @@ def get_transforms(random_erasing):
         normalize_transform
     ]
     transform_train_strong = [
-        transforms.RandAugment(),
+        transforms.RandAugment(num_ops=randaugment_num_ops, magnitude=randaugment_magnitude),
         transforms.RandomResizedCrop(sz_crop),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),

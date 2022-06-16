@@ -11,6 +11,8 @@ dataset:
   train_classes: 98
   labeled_fraction: 1.0
   random_erasing: False
+  randaugment_num_ops: 2
+  randaugment_magnitude: 9
 
 training:
   epochs: 70
