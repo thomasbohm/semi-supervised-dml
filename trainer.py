@@ -112,7 +112,7 @@ class Trainer():
                 self.config['dataset']['path'],
                 self.config['dataset']['train_classes'],
                 self.config['dataset']['labeled_fraction'],
-                num_workers=4
+                num_workers=self.config['dataset']['num_workers']
             )
 
             if self.config['mode'] != 'test':
@@ -423,7 +423,7 @@ class Trainer():
             # 'ulb_batch_size_factor': random.randint(1, 8)
         }
         self.config['training'].update(train_config)
-        
+
         dataset_config = {
             'randaugment_num_ops': random.randint(1, 3),
             'randaugment_magnitude': random.randint(5, 15)
