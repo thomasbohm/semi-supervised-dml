@@ -286,7 +286,8 @@ class Trainer():
                 preds_ulb_s = F.log_softmax(preds_ulb_s)
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
             assert loss_ulb, 'Unlabled loss needs to be either "l2" or "kl"'
-            loss_ulb *= epoch / self.config['training']['epochs']
+            if epoch < 10:
+                loss_ulb *= epoch / 10
 
             if torch.isnan(loss_lb) or torch.isnan(loss_ulb):
                 self.logger.error("We have NaN numbers, closing\n\n\n")
@@ -415,8 +416,8 @@ class Trainer():
         train_config = {
             'lr': 10 ** random.uniform(-5, -3),
             'weight_decay': 10 ** random.uniform(-15, -6),
-            # 'num_classes_iter': random.randint(6, 15),
-            # 'num_elements_class': random.randint(3, 9),
+            'num_classes_iter': random.randint(6, 10),
+            'num_elements_class': random.randint(3, 8),
             'temperature': random.random(),
             'epochs': 40,
             # 'ulb_loss_weight': random.randint(1, 10),
