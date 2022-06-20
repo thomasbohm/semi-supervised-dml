@@ -61,6 +61,7 @@ class Evaluator():
                         # Happens if len(dset_eval) % batch_size is small
                         # and multi-gpu training is used. The last batch probably
                         # cannot be distributed onto all gpus.
+                        self.logger.info(f'Skipping batch of shape {x.shape}')
                         pass
                     else:
                         raise TypeError()
