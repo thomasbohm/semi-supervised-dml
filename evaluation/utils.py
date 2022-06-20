@@ -47,13 +47,23 @@ class Evaluator():
         return recalls, nmi
 
     def predict_batchwise(self, model, dataloader):
-        model = model.to('cpu')
         fc7s, targets = [], []
         with torch.no_grad():
             for x, y in dataloader:
-                _, fc7 = model(x, output_option='plain', val=True)
-                fc7s.append(fc7)
-                targets.append(y)
+                x = x.to(self.device)
+                try:
+                    _, fc7 = model(x, output_option='plain', val=True)
+                    fc7s.append(fc7.cpu())
+                    targets.append(y)
+                except TypeError:
+                    if torch.cuda.device_count() > 1:
+                        # Silenty skip this error.
+                        # Happens if len(dset_eval) % batch_size is small
+                        # and multi-gpu training is used. The last batch probably
+                        # cannot be distributed onto all gpus.
+                        pass
+                    else:
+                        raise TypeError()
 
         fc7, targets = torch.cat(fc7s), torch.cat(targets)
         return torch.squeeze(fc7), torch.squeeze(targets)
