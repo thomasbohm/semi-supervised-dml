@@ -24,5 +24,5 @@ training:
   temperature: 0.11
   loss_lb: "lsce"
   loss_ulb: ""
-  ulb_batch_size_factor: 1
+  ulb_batch_size_factor: 7
   ulb_loss_weight: 1

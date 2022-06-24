@@ -56,7 +56,7 @@ class Trainer():
     def start(self):
         self.logger.info(f'Device: {self.device}')
         hyper_search = self.config['mode'] == 'hyper'
-        num_runs = 30 if hyper_search else 1
+        num_runs = 50 if hyper_search else 1
 
         best_run = -1
         best_recall_at_1 = -1
@@ -413,15 +413,15 @@ class Trainer():
 
     def sample_hypers(self):
         random.seed()
+        num_classes_iter, num_elements_class = random.choice([
+            (8, 8), (6, 10), (5, 12), (4, 16), (3, 20), (10, 6), (12, 5), (16, 4), (20, 3)])
         train_config = {
             'lr': 10 ** random.uniform(-5, -3),
             'weight_decay': 10 ** random.uniform(-15, -6),
-            'num_classes_iter': random.randint(6, 10),
-            'num_elements_class': random.randint(3, 8),
+            'num_classes_iter': num_classes_iter,
+            'num_elements_class': num_elements_class,
             'temperature': random.random(),
             'epochs': 40,
-            # 'ulb_loss_weight': random.randint(1, 10),
-            # 'ulb_batch_size_factor': random.randint(1, 8)
         }
         self.config['training'].update(train_config)
 
@@ -454,9 +454,3 @@ def seed_everything(seed: int = 42):
 
     torch.use_deterministic_algorithms(True)
     torch.set_num_threads(1)
-
-
-def seed_worker(worker_id: int):
-    worker_seed = torch.initial_seed() % 2**32
-    np.random.seed(worker_seed)
-    random.seed(worker_seed)
