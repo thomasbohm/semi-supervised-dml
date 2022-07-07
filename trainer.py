@@ -72,8 +72,9 @@ class Trainer():
 
             seed_everything()
 
+            num_classes = self.config['dataset']['train_classes']
             model, embed_size = load_resnet50(
-                num_classes=self.config['dataset']['train_classes'],
+                num_classes=num_classes,
                 pretrained_path=self.config['resnet']['pretrained_path'],
                 reduction=self.config['resnet']['reduction'],
                 neck=self.config['resnet']['bottleneck']
@@ -88,11 +89,18 @@ class Trainer():
                 'Loaded resnet50 with embedding dim {}.'.format(embed_size)
             )
 
-            head_ulb = nn.Sequential(
-                nn.Linear(embed_size, 4 * embed_size),
-                nn.ReLU(),
-                nn.Linear(4 * embed_size, embed_size)
-            )
+            if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head']:
+                head_ulb = nn.Sequential(
+                    nn.Linear(num_classes, 4 * num_classes),
+                    nn.ReLU(),
+                    nn.Linear(4 * num_classes, embed_size)
+                )
+            else:
+                head_ulb = nn.Sequential(
+                    nn.Linear(num_classes, 4 * num_classes),
+                    nn.ReLU(),
+                    nn.Linear(4 * num_classes, num_classes)
+                )
             if torch.cuda.device_count() > 1:
                 head_ulb = nn.parallel.DataParallel(head_ulb)
             head_ulb = head_ulb.to(self.device)
@@ -309,6 +317,7 @@ class Trainer():
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
             else: # self.config['training']['loss_ulb'] == 'kl_head':
                 preds_ulb = preds[x_lb.shape[0]:]
+                self.logger.info(f'preds_ulb shape: {preds_ulb.shape}')
                 preds_ulb = head_ulb(preds_ulb)
                 preds_ulb_w = preds_ulb[:x_ulb_w.shape[0]]
                 preds_ulb_s = preds_ulb[x_ulb_w.shape[0]:]
