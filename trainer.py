@@ -91,9 +91,9 @@ class Trainer():
 
             if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head']:
                 head_ulb = nn.Sequential(
-                    nn.Linear(num_classes, 4 * num_classes),
+                    nn.Linear(embed_size, 2 * embed_size),
                     nn.ReLU(),
-                    nn.Linear(4 * num_classes, embed_size)
+                    nn.Linear(2 * embed_size, embed_size)
                 )
             else:
                 head_ulb = nn.Sequential(
