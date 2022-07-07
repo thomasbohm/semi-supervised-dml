@@ -1,5 +1,9 @@
+import os.path as osp
 import torch
 import logging
+import matplotlib.pyplot as plt
+
+from sklearn.manifold import TSNE
 
 from .normalized_mutual_information import calc_normalized_mutual_information, cluster_by_kmeans
 from .recall import calc_recall_at_k, assign_by_euclidian_at_k
@@ -17,11 +21,20 @@ class Evaluator():
         ch.setFormatter(formatter)
         self.logger.addHandler(ch)
 
-    def evaluate(self, model, dataloader, dataroot, num_classes):
+        self.tsne_model = TSNE(n_components=2, learning_rate='auto', random_state=0, init='pca')
+
+    def evaluate(self, model, dataloader, dataroot, num_classes, tsne=False, plot_dir=''):
         model_is_training = model.training
         model.eval()
 
         feats, targets = self.predict_batchwise(model, dataloader)
+
+        if tsne:
+            self.logger.info('Creating tsne embeddings...')
+            feats_tsne = self.tsne_model.fit_transform(feats)
+            plt.scatter(*feats_tsne.T, c=self.get_colors(targets).tolist(), s=50, alpha=0.8)
+            plt.savefig(osp.join(plot_dir, 'tsne.png'))
+            self.logger.info(f'Saved plot to {osp.join(plot_dir, "tsne.png")}')
 
         recalls = []
         if dataroot != 'SOP':
@@ -68,3 +81,16 @@ class Evaluator():
 
         fc7, targets = torch.cat(fc7s), torch.cat(targets)
         return torch.squeeze(fc7), torch.squeeze(targets)
+
+    def get_colors(self, Y: torch.Tensor):
+        assert len(Y.shape) == 1
+        
+        C = torch.zeros_like(Y)
+        color_map = {}
+        for i in range(Y.shape[0]):
+            y = Y[i].item()
+            if y not in color_map:
+                num_colors = len(color_map)
+                color_map[y] = num_colors
+            C[i] = color_map[y]
+        return C.float()

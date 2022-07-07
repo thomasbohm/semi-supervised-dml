@@ -41,7 +41,7 @@ class Trainer():
             self.config['dataset']['labeled_fraction'] * 100,
             self.config['mode']
         )
-        self.results_dir = './results/{}/{}'.format(
+        self.results_dir = './results/{}/{}/'.format(
             config['dataset']['name'],
             date
         )
@@ -305,7 +305,9 @@ class Trainer():
                 model,
                 dl_ev,
                 dataroot=self.config['dataset']['name'],
-                num_classes=self.config['dataset']['train_classes']
+                num_classes=self.config['dataset']['train_classes'],
+                tsne=True,
+                plot_dir=self.results_dir
             )
             return recalls, nmi
 
