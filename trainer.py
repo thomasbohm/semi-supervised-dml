@@ -88,8 +88,18 @@ class Trainer():
                 'Loaded resnet50 with embedding dim {}.'.format(embed_size)
             )
 
+            head_ulb = nn.Sequential(
+                nn.Linear(embed_size, 4 * embed_size),
+                nn.ReLU(),
+                nn.Linear(4 * embed_size, embed_size)
+            )
+            if torch.cuda.device_count() > 1:
+                head_ulb = nn.parallel.DataParallel(head_ulb)
+            head_ulb = head_ulb.to(self.device)
+
+            params = list(set(model.parameters())) + list(set(head_ulb.parameters()))
             optimizer = RAdam(
-                model.parameters(),
+                params,
                 lr=self.config['training']['lr'],
                 weight_decay=self.config['training']['weight_decay']
             )
@@ -100,6 +110,7 @@ class Trainer():
                 loss_fn_lb = nn.CrossEntropyLoss()
 
             loss_fn_ulb = None
+            assert self.config['training']['loss_ulb'] in ['', 'l2', 'kl', 'huber', 'l2_head', 'kl_head', 'huber_head']
             if self.config['training']['loss_ulb'] == 'l2':
                 loss_fn_ulb = nn.MSELoss()
             elif self.config['training']['loss_ulb'] == 'kl':
@@ -121,6 +132,7 @@ class Trainer():
                 assert dl_tr_lb
                 recall_at_1 = self.train_run(
                     model,
+                    head_ulb,
                     optimizer,
                     loss_fn_lb,
                     loss_fn_ulb,
@@ -152,6 +164,7 @@ class Trainer():
     def train_run(
         self,
         model: nn.Module,
+        head_ulb: nn.Module,
         optimizer: Optimizer,
         loss_fn_lb: nn.CrossEntropyLoss,
         loss_fn_ulb: Optional[Union[nn.MSELoss, nn.KLDivLoss, nn.HuberLoss]],
@@ -185,6 +198,7 @@ class Trainer():
                     dl_tr_lb,
                     dl_tr_ulb,
                     model,
+                    head_ulb,
                     optimizer,
                     loss_fn_lb,
                     loss_fn_ulb,
@@ -256,6 +270,7 @@ class Trainer():
         dl_tr_lb: DataLoader,
         dl_tr_ulb: DataLoader,
         model: nn.Module,
+        head_ulb: nn.Module,
         optimizer: Optimizer,
         loss_fn_lb: nn.Module,
         loss_fn_ulb: nn.Module,
@@ -280,15 +295,27 @@ class Trainer():
                 embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
                 embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
                 loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
-
+            elif self.config['training']['loss_ulb'] in ['l2_head', 'huber_head']:
+                embeddings_ulb = embeddings[x_lb.shape[0]:]
+                embeddings_ulb = head_ulb(embeddings_ulb)
+                embeddings_ulb_w = embeddings_ulb[:x_ulb_w.shape[0]]
+                embeddings_ulb_s = embeddings_ulb[x_ulb_w.shape[0]:]
+                loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
             elif self.config['training']['loss_ulb'] == 'kl':
-                preds_ulb_w = preds[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
-                preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0]:]
+                preds_ulb_w = preds[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
+                preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0] :]
+                preds_ulb_w = F.log_softmax(preds_ulb_w)
+                preds_ulb_s = F.log_softmax(preds_ulb_s)
+                loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
+            else: # self.config['training']['loss_ulb'] == 'kl_head':
+                preds_ulb = preds[x_lb.shape[0]:]
+                preds_ulb = head_ulb(preds_ulb)
+                preds_ulb_w = preds_ulb[:x_ulb_w.shape[0]]
+                preds_ulb_s = preds_ulb[x_ulb_w.shape[0]:]
                 preds_ulb_w = F.log_softmax(preds_ulb_w)
                 preds_ulb_s = F.log_softmax(preds_ulb_s)
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
 
-            assert loss_ulb, 'Unlabled loss needs to be "l2", "huber" or "kl"'
             # warm up
             if epoch < 40:
                 loss_ulb *= epoch / 40
@@ -298,8 +325,7 @@ class Trainer():
                 return
 
             # self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
-            loss = loss_lb + \
-                self.config['training']['ulb_loss_weight'] * loss_ulb
+            loss = loss_lb + self.config['training']['ulb_loss_weight'] * loss_ulb
             loss.backward()
             optimizer.step()
 
