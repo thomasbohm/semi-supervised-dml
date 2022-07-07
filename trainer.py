@@ -317,7 +317,6 @@ class Trainer():
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
             else: # self.config['training']['loss_ulb'] == 'kl_head':
                 preds_ulb = preds[x_lb.shape[0]:]
-                self.logger.info(f'preds_ulb shape: {preds_ulb.shape}')
                 preds_ulb = head_ulb(preds_ulb)
                 preds_ulb_w = preds_ulb[:x_ulb_w.shape[0]]
                 preds_ulb_s = preds_ulb[x_ulb_w.shape[0]:]
