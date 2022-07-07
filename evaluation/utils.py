@@ -32,7 +32,7 @@ class Evaluator():
         if tsne:
             self.logger.info('Creating tsne embeddings...')
             feats_tsne = self.tsne_model.fit_transform(feats)
-            plt.scatter(*feats_tsne.T, c=self.get_colors(targets).tolist(), s=50, alpha=0.8)
+            plt.scatter(*feats_tsne.T, c=self.get_colors(targets).tolist(), s=20, alpha=0.6)
             plt.savefig(osp.join(plot_dir, 'tsne.png'))
             self.logger.info(f'Saved plot to {osp.join(plot_dir, "tsne.png")}')
 
