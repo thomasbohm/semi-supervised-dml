@@ -111,14 +111,14 @@ class Trainer():
 
             loss_fn_ulb = None
             assert self.config['training']['loss_ulb'] in ['', 'l2', 'kl', 'huber', 'l2_head', 'kl_head', 'huber_head']
-            if self.config['training']['loss_ulb'] == 'l2':
+            if self.config['training']['loss_ulb'] in ['l2', 'l2_head']:
                 loss_fn_ulb = nn.MSELoss()
-            elif self.config['training']['loss_ulb'] == 'kl':
+            elif self.config['training']['loss_ulb'] in ['kl', 'kl_head']:
                 loss_fn_ulb = nn.KLDivLoss(
                     log_target=True,
                     reduction='batchmean'
                 )
-            elif self.config['training']['loss_ulb'] == 'huber':
+            elif self.config['training']['loss_ulb'] in ['huber', 'huber_head']:
                 loss_fn_ulb = nn.HuberLoss()
 
             dl_tr_lb, dl_tr_ulb, dl_ev = self.get_dataloaders_ssl(
