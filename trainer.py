@@ -56,7 +56,7 @@ class Trainer():
     def start(self):
         self.logger.info(f'Device: {self.device}')
         hyper_search = self.config['mode'] == 'hyper'
-        num_runs = 50 if hyper_search else 1
+        num_runs = 30 if hyper_search else 1
 
         best_run = -1
         best_recall_at_1 = -1
