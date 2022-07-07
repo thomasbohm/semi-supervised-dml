@@ -1,4 +1,5 @@
 import os.path as osp
+from typing import List, Tuple
 import torch
 import logging
 import matplotlib.pyplot as plt
@@ -23,7 +24,7 @@ class Evaluator():
 
         self.tsne_model = TSNE(n_components=2, learning_rate='auto', random_state=0, init='pca')
 
-    def evaluate(self, model, dataloader, dataroot, num_classes, tsne=False, plot_dir=''):
+    def evaluate(self, model, dataloader, dataroot, num_classes, tsne=False, plot_dir='') -> Tuple[List[float], float]:
         model_is_training = model.training
         model.eval()
 
@@ -36,7 +37,7 @@ class Evaluator():
             plt.savefig(osp.join(plot_dir, 'tsne.png'))
             self.logger.info(f'Saved plot to {osp.join(plot_dir, "tsne.png")}')
 
-        recalls = []
+        recalls: List[float] = []
         if dataroot != 'SOP':
             Y, targets = assign_by_euclidian_at_k(feats, targets, 8)
             which_nearest_neighbors = [1, 2, 4, 8]
@@ -54,7 +55,7 @@ class Evaluator():
                 targets, cluster_by_kmeans(feats, num_classes))
             self.logger.info("NMI: {:.3f}".format(nmi * 100))
         else:
-            nmi = -1
+            nmi = -1.0
 
         model.train(model_is_training)
         return recalls, nmi

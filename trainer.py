@@ -107,6 +107,8 @@ class Trainer():
                     log_target=True,
                     reduction='batchmean'
                 )
+            elif self.config['training']['loss_ulb'] == 'huber':
+                loss_fn_ulb = nn.HuberLoss()
 
             dl_tr_lb, dl_tr_ulb, dl_ev = self.get_dataloaders_ssl(
                 self.config['dataset']['path'],
@@ -152,14 +154,14 @@ class Trainer():
         model: nn.Module,
         optimizer: Optimizer,
         loss_fn_lb: nn.CrossEntropyLoss,
-        loss_fn_ulb: Optional[Union[nn.MSELoss, nn.KLDivLoss]],
+        loss_fn_ulb: Optional[Union[nn.MSELoss, nn.KLDivLoss, nn.HuberLoss]],
         dl_tr_lb: DataLoader,
         dl_tr_ulb: Optional[DataLoader],
         dl_ev: DataLoader
     ):
         scores = []
         best_epoch = -1
-        best_recall_at_1 = 0
+        best_recall_at_1 = 0.0
 
         for epoch in range(1, self.config['training']['epochs'] + 1):
             self.logger.info(
@@ -243,7 +245,7 @@ class Trainer():
 
             if torch.isnan(loss):
                 self.logger.error("We have NaN numbers, closing\n\n\n")
-                return 0.0
+                return
 
             # self.logger.info('loss_lb: {}'.format(loss))
             loss.backward()
@@ -274,7 +276,7 @@ class Trainer():
             )
 
             loss_ulb = None
-            if self.config['training']['loss_ulb'] == 'l2':
+            if self.config['training']['loss_ulb'] in ['l2', 'huber']:
                 embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
                 embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
                 loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
@@ -285,13 +287,15 @@ class Trainer():
                 preds_ulb_w = F.log_softmax(preds_ulb_w)
                 preds_ulb_s = F.log_softmax(preds_ulb_s)
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
-            assert loss_ulb, 'Unlabled loss needs to be either "l2" or "kl"'
-            if epoch < 10:
-                loss_ulb *= epoch / 10
+
+            assert loss_ulb, 'Unlabled loss needs to be "l2", "huber" or "kl"'
+            # warm up
+            if epoch < 40:
+                loss_ulb *= epoch / 40
 
             if torch.isnan(loss_lb) or torch.isnan(loss_ulb):
                 self.logger.error("We have NaN numbers, closing\n\n\n")
-                return 0.0
+                return
 
             # self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
             loss = loss_lb + \
