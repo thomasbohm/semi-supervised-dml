@@ -28,7 +28,17 @@ def load_resnet50(num_classes, pretrained_path='no', reduction=4, last_stride=0,
             model.load_state_dict(torch.load(
                 pretrained_path, map_location=torch.device('cpu')))
         else:
-            model.load_state_dict(torch.load(pretrained_path))
+            state_dict = torch.load(pretrained_path)
+            from collections import OrderedDict
+            new_state_dict = OrderedDict()
+            for k, v in state_dict.items():
+                if k[:7] != 'module.':
+                    new_state_dict = state_dict
+                    break
+                name = k[7:] # remove `module.`
+                new_state_dict[name] = v
+            # load params
+            model.load_state_dict(new_state_dict)
         print('Loaded weights: {}'.format(pretrained_path))
 
     return model, embed_dim
