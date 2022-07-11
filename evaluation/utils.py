@@ -93,8 +93,9 @@ class Evaluator():
         return C.float()
     
     def create_tsne_plot(self, feats, targets, path):
-        self.logger.info('Creating tsne embeddings...')
-        feats_tsne = self.tsne_model.fit_transform(feats.cpu())
-        plt.scatter(*feats_tsne.T, c=self.get_colors(targets).tolist(), s=10, alpha=0.6)
-        plt.savefig(path)
-        self.logger.info(f'Saved plot to {path}')
+        with torch.no_grad():
+            self.logger.info('Creating tsne embeddings...')
+            feats_tsne = self.tsne_model.fit_transform(feats.detach().cpu())
+            plt.scatter(*feats_tsne.T, c=self.get_colors(targets).tolist(), s=10, alpha=0.6)
+            plt.savefig(path)
+            self.logger.info(f'Saved plot to {path}')
