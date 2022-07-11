@@ -210,7 +210,8 @@ class Trainer():
                     optimizer,
                     loss_fn_lb,
                     loss_fn_ulb,
-                    epoch
+                    epoch,
+                    self.config['mode'] == 'train'
                 )
             eval_start = time.time()
             with torch.no_grad():
@@ -282,10 +283,12 @@ class Trainer():
         optimizer: Optimizer,
         loss_fn_lb: nn.Module,
         loss_fn_ulb: nn.Module,
-        epoch: int
+        epoch: int,
+        plot_tsne: bool = False
     ):
         temp = self.config['training']['temperature']
-        for (x_lb, y_lb), (x_ulb_w, x_ulb_s, _) in zip(dl_tr_lb, dl_tr_ulb):
+        first_batch = True
+        for (x_lb, y_lb), (x_ulb_w, x_ulb_s, y_ulb) in zip(dl_tr_lb, dl_tr_ulb):
             optimizer.zero_grad()
 
             x = torch.cat((x_lb, x_ulb_w, x_ulb_s))
@@ -299,34 +302,49 @@ class Trainer():
             )
 
             loss_ulb = None
-            if self.config['training']['loss_ulb'] in ['l2', 'huber']:
-                embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
-                embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
+            # embedding based losses
+            if self.config['training']['loss_ulb'] in ['l2', 'huber', 'l2_head', 'huber_head']:
+                if self.config['training']['loss_ulb'] in ['l2', 'huber']:
+                    embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                    embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
+                else:
+                    embeddings_ulb = embeddings[x_lb.shape[0]:]
+                    embeddings_ulb = head_ulb(embeddings_ulb)
+                    embeddings_ulb_w = embeddings_ulb[:x_ulb_w.shape[0]]
+                    embeddings_ulb_s = embeddings_ulb[x_ulb_w.shape[0]:]
+                if plot_tsne and epoch % 10 == 0 and first_batch:
+                    first_batch = False
+                    self.evaluator.create_tsne_plot(
+                        embeddings_ulb_w,
+                        y_ulb,
+                        osp.join(self.results_dir, f'tsne_train_{epoch}_weak.png')
+                    )
+                    self.evaluator.create_tsne_plot(embeddings_ulb_s,
+                    y_ulb,
+                    osp.join(self.results_dir, f'tsne_train_{epoch}_strong.png')
+                )
                 loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
-            elif self.config['training']['loss_ulb'] in ['l2_head', 'huber_head']:
-                embeddings_ulb = embeddings[x_lb.shape[0]:]
-                embeddings_ulb = head_ulb(embeddings_ulb)
-                embeddings_ulb_w = embeddings_ulb[:x_ulb_w.shape[0]]
-                embeddings_ulb_s = embeddings_ulb[x_ulb_w.shape[0]:]
-                loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
-            elif self.config['training']['loss_ulb'] == 'kl':
-                preds_ulb_w = preds[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
-                preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0] :]
-                preds_ulb_w = F.log_softmax(preds_ulb_w)
-                preds_ulb_s = F.log_softmax(preds_ulb_s)
-                loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
-            else: # self.config['training']['loss_ulb'] == 'kl_head':
-                preds_ulb = preds[x_lb.shape[0]:]
-                preds_ulb = head_ulb(preds_ulb)
-                preds_ulb_w = preds_ulb[:x_ulb_w.shape[0]]
-                preds_ulb_s = preds_ulb[x_ulb_w.shape[0]:]
+            
+            # prediction based losses: 'kl', 'kl_head'
+            else:
+                if self.config['training']['loss_ulb'] == 'kl':
+                    preds_ulb_w = preds[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
+                    preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0] :]
+                elif self.config['training']['loss_ulb'] == 'kl_head':
+                    preds_ulb = preds[x_lb.shape[0]:]
+                    preds_ulb = head_ulb(preds_ulb)
+                    preds_ulb_w = preds_ulb[:x_ulb_w.shape[0]]
+                    preds_ulb_s = preds_ulb[x_ulb_w.shape[0]:]
+                else:
+                    self.logger.error(f'Unlabeled loss not supported: {self.config["training"]["loss_ulb"]}')
+                    return
                 preds_ulb_w = F.log_softmax(preds_ulb_w)
                 preds_ulb_s = F.log_softmax(preds_ulb_s)
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
 
             # warm up
-            if epoch < 40:
-                loss_ulb *= epoch / 40
+            if epoch < self.config['training']['ulb_loss_warmup']:
+                loss_ulb *= epoch / self.config['training']['ulb_loss_warmup']
 
             if torch.isnan(loss_lb) or torch.isnan(loss_ulb):
                 self.logger.error("We have NaN numbers, closing\n\n\n")
