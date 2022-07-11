@@ -198,7 +198,9 @@ class Trainer():
                     dl_tr_lb,
                     model,
                     optimizer,
-                    loss_fn_lb
+                    loss_fn_lb,
+                    epoch,
+                    self.config['mode'] == 'train'
                 )
             else:
                 assert dl_tr_ulb and loss_fn_ulb
@@ -255,9 +257,12 @@ class Trainer():
         dl_tr_lb: DataLoader,
         model: nn.Module,
         optimizer: Optimizer,
-        loss_fn_lb: nn.Module
+        loss_fn_lb: nn.Module,
+        epoch: int,
+        plot_tsne: bool = False
     ):
         temp = self.config['training']['temperature']
+        first_batch = True
         for (x, y) in dl_tr_lb:
             optimizer.zero_grad()
 
@@ -266,6 +271,14 @@ class Trainer():
             preds, embeddings = model(x, output_option='norm', val=False)
             loss = loss_fn_lb(preds / temp, y)
 
+            if plot_tsne and epoch % 10 == 0 and first_batch:
+                    first_batch = False
+                    self.evaluator.create_tsne_plot(
+                        embeddings,
+                        y,
+                        osp.join(self.results_dir, f'tsne_train_{epoch}.png')
+                    )
+            
             if torch.isnan(loss):
                 self.logger.error("We have NaN numbers, closing\n\n\n")
                 return
