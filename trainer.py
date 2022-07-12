@@ -25,9 +25,7 @@ from RAdam import RAdam
 class Trainer():
     def __init__(self, config: dict):
         self.config = config
-        self.device = torch.device(
-            'cuda:0' if torch.cuda.is_available() else 'cpu'
-        )
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         if config['mode'] != 'hyper':
             logging_level = logging.INFO
         else:
@@ -80,9 +78,7 @@ class Trainer():
                 neck=self.config['resnet']['bottleneck']
             )
             if torch.cuda.device_count() > 1:
-                self.logger.info('Using {} GPUs'.format(
-                    torch.cuda.device_count()
-                ))
+                self.logger.info('Using {} GPUs'.format(torch.cuda.device_count()))
                 model = nn.parallel.DataParallel(model)
             model = model.to(self.device)
             self.logger.info(
@@ -109,7 +105,7 @@ class Trainer():
                 params = list(set(model.parameters())) + list(set(head_ulb.parameters()))
             else:
                 params = model.parameters()
-                
+
             optimizer = RAdam(
                 params,
                 lr=self.config['training']['lr'],
@@ -121,14 +117,17 @@ class Trainer():
             else:
                 loss_fn_lb = nn.CrossEntropyLoss()
 
-            loss_fn_ulb = None
-            assert self.config['training']['loss_ulb'] in ['', 'l2', 'kl', 'huber', 'l2_head', 'kl_head', 'huber_head']
             if self.config['training']['loss_ulb'] in ['l2', 'l2_head']:
                 loss_fn_ulb = nn.MSELoss()
             elif self.config['training']['loss_ulb'] in ['kl', 'kl_head']:
                 loss_fn_ulb = nn.KLDivLoss(log_target=True, reduction='batchmean')
             elif self.config['training']['loss_ulb'] in ['huber', 'huber_head']:
                 loss_fn_ulb = nn.HuberLoss()
+            elif self.config['training']['loss_ulb'] == '':
+                loss_fn_ulb = None
+            else:
+                self.logger.error(f'Unlabeled loss not supported: {self.config["training"]["loss_ulb"]}')
+                return
 
             dl_tr_lb, dl_tr_ulb, dl_ev = self.get_dataloaders_ssl(
                 self.config['dataset']['path'],
@@ -140,14 +139,14 @@ class Trainer():
             if self.config['mode'] != 'test':
                 assert dl_tr_lb
                 recall_at_1 = self.train_run(
-                    model,
-                    head_ulb,
-                    optimizer,
-                    loss_fn_lb,
-                    loss_fn_ulb,
-                    dl_tr_lb,
-                    dl_tr_ulb,
-                    dl_ev
+                    model=model,
+                    head_ulb=head_ulb,
+                    optimizer=optimizer,
+                    loss_fn_lb=loss_fn_lb,
+                    loss_fn_ulb=loss_fn_ulb,
+                    dl_tr_lb=dl_tr_lb,
+                    dl_tr_ulb=dl_tr_ulb,
+                    dl_ev=dl_ev
                 )
                 if recall_at_1 > best_recall_at_1:
                     best_run = run
@@ -166,9 +165,7 @@ class Trainer():
         if hyper_search:
             self.logger.info('Best Run: {}'.format(best_run))
             self.logger.info('Best R@1: {:.4}'.format(best_recall_at_1 * 100))
-            self.logger.info('Best Hyperparameters:\n{}'.format(
-                json.dumps(best_hypers, indent=4)
-            ))
+            self.logger.info('Best Hyperparameters:\n{}'.format(json.dumps(best_hypers, indent=4)))
 
     def train_run(
         self,
@@ -186,9 +183,7 @@ class Trainer():
         best_recall_at_1 = 0.0
 
         for epoch in range(1, self.config['training']['epochs'] + 1):
-            self.logger.info(
-                'EPOCH {}/{}'.format(epoch, self.config['training']['epochs'])
-            )
+            self.logger.info('EPOCH {}/{}'.format(epoch, self.config['training']['epochs']))
             start = time.time()
 
             if epoch == 30 or epoch == 50:
@@ -274,7 +269,7 @@ class Trainer():
 
             if plot_tsne and epoch % 10 == 0 and first_batch:
                 first_batch = False
-                path = osp.join(self.results_dir, f'tsne_train_{epoch}.png')
+                path = osp.join(self.results_dir, f'tsne_train_lb_{epoch}.png')
                 self.evaluator.create_tsne_plot(embeddings, y, path)
             
             if torch.isnan(loss):
@@ -307,12 +302,14 @@ class Trainer():
             preds, embeddings = model(x, output_option='norm', val=False)
 
             preds_lb = preds[:x_lb.shape[0]]
-            loss_lb = loss_fn_lb(
-                preds_lb / temp,
-                y_lb.to(self.device)
-            )
+            if plot_tsne and epoch % 10 == 0 and first_batch:
+                self.evaluator.create_tsne_plot(
+                    preds_lb,
+                    y_lb,
+                    osp.join(self.results_dir, f'tsne_train_lb_{epoch}.png')
+                )
+            loss_lb = loss_fn_lb(preds_lb / temp, y_lb.to(self.device))
 
-            loss_ulb = None
             # embedding based losses
             if self.config['training']['loss_ulb'] in ['l2', 'huber', 'l2_head', 'huber_head']:
                 if self.config['training']['loss_ulb'] in ['l2', 'huber']:
@@ -328,11 +325,11 @@ class Trainer():
                     self.evaluator.create_tsne_plot(
                         embeddings_ulb_w,
                         y_ulb,
-                        osp.join(self.results_dir, f'tsne_train_{epoch}_weak.png')
+                        osp.join(self.results_dir, f'tsne_train_ulb_w_{epoch}.png')
                     )
                     self.evaluator.create_tsne_plot(embeddings_ulb_s,
                     y_ulb,
-                    osp.join(self.results_dir, f'tsne_train_{epoch}_strong.png')
+                    osp.join(self.results_dir, f'tsne_train_ulb_s_{epoch}.png')
                 )
                 loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
             
