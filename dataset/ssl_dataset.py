@@ -97,7 +97,7 @@ def get_transforms(random_erasing: bool, randaugment_num_ops: int, randaugment_m
             )
         ], p=0.8),
         transforms.RandomGrayscale(p=0.2),
-        transforms.GaussianBlur(kernel_size=sz_crop//10),
+        transforms.GaussianBlur(23),
         transforms.ToTensor(),
         transforms.Normalize((0.5,), (0.5,))
         ]
