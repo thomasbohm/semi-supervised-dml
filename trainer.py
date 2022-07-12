@@ -351,11 +351,11 @@ class Trainer():
                     self.evaluator.create_tsne_plot(
                         preds_ulb_w,
                         y_ulb,
-                        osp.join(self.results_dir, f'tsne_train_{epoch}_weak.png')
+                        osp.join(self.results_dir, f'tsne_train_ulb_w_{epoch}.png')
                     )
                     self.evaluator.create_tsne_plot(preds_ulb_s,
                         y_ulb,
-                        osp.join(self.results_dir, f'tsne_train_{epoch}_strong.png')
+                        osp.join(self.results_dir, f'tsne_train_ulb_s_{epoch}.png')
                     )
                 preds_ulb_w = F.log_softmax(preds_ulb_w)
                 preds_ulb_s = F.log_softmax(preds_ulb_s)
