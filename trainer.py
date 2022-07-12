@@ -122,10 +122,7 @@ class Trainer():
             if self.config['training']['loss_ulb'] in ['l2', 'l2_head']:
                 loss_fn_ulb = nn.MSELoss()
             elif self.config['training']['loss_ulb'] in ['kl', 'kl_head']:
-                loss_fn_ulb = nn.KLDivLoss(
-                    log_target=True,
-                    reduction='batchmean'
-                )
+                loss_fn_ulb = nn.KLDivLoss(log_target=True, reduction='batchmean')
             elif self.config['training']['loss_ulb'] in ['huber', 'huber_head']:
                 loss_fn_ulb = nn.HuberLoss()
 
@@ -272,12 +269,9 @@ class Trainer():
             loss = loss_fn_lb(preds / temp, y)
 
             if plot_tsne and epoch % 10 == 0 and first_batch:
-                    first_batch = False
-                    self.evaluator.create_tsne_plot(
-                        embeddings,
-                        y,
-                        osp.join(self.results_dir, f'tsne_train_{epoch}.png')
-                    )
+                first_batch = False
+                path = osp.join(self.results_dir, f'tsne_train_{epoch}.png')
+                self.evaluator.create_tsne_plot(embeddings, y, path)
             
             if torch.isnan(loss):
                 self.logger.error("We have NaN numbers, closing\n\n\n")
@@ -348,6 +342,17 @@ class Trainer():
                     preds_ulb = head_ulb(preds_ulb)
                     preds_ulb_w = preds_ulb[:x_ulb_w.shape[0]]
                     preds_ulb_s = preds_ulb[x_ulb_w.shape[0]:]
+                    if plot_tsne and epoch % 10 == 0 and first_batch:
+                        first_batch = False
+                        self.evaluator.create_tsne_plot(
+                            preds_ulb_w,
+                            y_ulb,
+                            osp.join(self.results_dir, f'tsne_train_{epoch}_weak.png')
+                        )
+                        self.evaluator.create_tsne_plot(preds_ulb_s,
+                            y_ulb,
+                            osp.join(self.results_dir, f'tsne_train_{epoch}_strong.png')
+                        )
                 else:
                     self.logger.error(f'Unlabeled loss not supported: {self.config["training"]["loss_ulb"]}')
                     return
@@ -470,8 +475,7 @@ class Trainer():
             if self.labeled_only:
                 assert len(dl_train_lb) == num_batches
             else:
-                assert dl_train_ulb and len(dl_train_lb) == len(
-                    dl_train_ulb) == num_batches
+                assert dl_train_ulb and len(dl_train_lb) == len(dl_train_ulb) == num_batches
 
         dl_eval = DataLoader(
             dset_eval,

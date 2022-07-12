@@ -85,6 +85,24 @@ def get_transforms(random_erasing: bool, randaugment_num_ops: int, randaugment_m
         normalize_transform
     ]
 
+    transform_train_strong_simclr = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomResizedCrop(sz_crop),
+        transforms.RandomApply([
+            transforms.ColorJitter(
+                brightness=0.8,
+                contrast=0.8,
+                saturation=0.8,
+                hue=0.2
+            )
+        ], p=0.8),
+        transforms.RandomGrayscale(p=0.2),
+        transforms.GaussianBlur(kernel_size=sz_crop//10),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5,), (0.5,))
+        ]
+    )
+
     if random_erasing:
         re_transform = RandomErasing(
             probability=0.5,
