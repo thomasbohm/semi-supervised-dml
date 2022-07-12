@@ -85,7 +85,7 @@ def get_transforms(random_erasing: bool, randaugment_num_ops: int, randaugment_m
         normalize_transform
     ]
 
-    transform_train_strong_simclr = transforms.Compose([
+    transform_train_strong_simclr = [
         transforms.RandomHorizontalFlip(),
         transforms.RandomResizedCrop(sz_crop),
         transforms.RandomApply([
@@ -100,8 +100,7 @@ def get_transforms(random_erasing: bool, randaugment_num_ops: int, randaugment_m
         transforms.GaussianBlur(23),
         transforms.ToTensor(),
         transforms.Normalize((0.5,), (0.5,))
-        ]
-    )
+    ]
 
     if random_erasing:
         re_transform = RandomErasing(

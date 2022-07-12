@@ -105,7 +105,11 @@ class Trainer():
                 head_ulb = nn.parallel.DataParallel(head_ulb)
             head_ulb = head_ulb.to(self.device)
 
-            params = list(set(model.parameters())) + list(set(head_ulb.parameters()))
+            if 'head' in self.config['training']['loss_ulb']:
+                params = list(set(model.parameters())) + list(set(head_ulb.parameters()))
+            else:
+                params = model.parameters()
+                
             optimizer = RAdam(
                 params,
                 lr=self.config['training']['lr'],
@@ -342,20 +346,20 @@ class Trainer():
                     preds_ulb = head_ulb(preds_ulb)
                     preds_ulb_w = preds_ulb[:x_ulb_w.shape[0]]
                     preds_ulb_s = preds_ulb[x_ulb_w.shape[0]:]
-                    if plot_tsne and epoch % 10 == 0 and first_batch:
-                        first_batch = False
-                        self.evaluator.create_tsne_plot(
-                            preds_ulb_w,
-                            y_ulb,
-                            osp.join(self.results_dir, f'tsne_train_{epoch}_weak.png')
-                        )
-                        self.evaluator.create_tsne_plot(preds_ulb_s,
-                            y_ulb,
-                            osp.join(self.results_dir, f'tsne_train_{epoch}_strong.png')
-                        )
                 else:
                     self.logger.error(f'Unlabeled loss not supported: {self.config["training"]["loss_ulb"]}')
                     return
+                if plot_tsne and epoch % 10 == 0 and first_batch:
+                    first_batch = False
+                    self.evaluator.create_tsne_plot(
+                        preds_ulb_w,
+                        y_ulb,
+                        osp.join(self.results_dir, f'tsne_train_{epoch}_weak.png')
+                    )
+                    self.evaluator.create_tsne_plot(preds_ulb_s,
+                        y_ulb,
+                        osp.join(self.results_dir, f'tsne_train_{epoch}_strong.png')
+                    )
                 preds_ulb_w = F.log_softmax(preds_ulb_w)
                 preds_ulb_s = F.log_softmax(preds_ulb_s)
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
