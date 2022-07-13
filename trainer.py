@@ -20,6 +20,7 @@ from dataset.ssl_dataset import create_datasets, get_transforms
 from evaluation.utils import Evaluator
 from net.load_net import load_resnet50
 from RAdam import RAdam
+from net.loss import NTXentLoss
 
 
 class Trainer():
@@ -77,7 +78,7 @@ class Trainer():
             model = model.to(self.device)
             self.logger.info(f'Loaded resnet50 with embedding dim {embed_size}.')
 
-            if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head']:
+            if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head', 'simclr']:
                 head_ulb = nn.Sequential(
                     nn.Linear(embed_size, 2 * embed_size),
                     nn.ReLU(),
@@ -117,6 +118,13 @@ class Trainer():
                 loss_fn_ulb = nn.HuberLoss()
             elif self.config['training']['loss_ulb'] == '':
                 loss_fn_ulb = None
+            elif self.config['training']['loss_ulb'] == 'simclr':
+                class_per_batch = self.config['training']['num_classes_iter']
+                elements_per_class = self.config['training']['num_elements_class']
+                batch_size_lb = class_per_batch * elements_per_class
+                batch_size_ulb = self.config['training']['ulb_batch_size_factor'] * batch_size_lb
+
+                loss_fn_ulb = NTXentLoss(batch_size=batch_size_ulb)
             else:
                 self.logger.error(f'Unlabeled loss not supported: {self.config["training"]["loss_ulb"]}')
                 return
@@ -165,7 +173,7 @@ class Trainer():
         head_ulb: nn.Module,
         optimizer: Optimizer,
         loss_fn_lb: nn.CrossEntropyLoss,
-        loss_fn_ulb: Optional[Union[nn.MSELoss, nn.KLDivLoss, nn.HuberLoss]],
+        loss_fn_ulb: Optional[Union[nn.MSELoss, nn.KLDivLoss, nn.HuberLoss, NTXentLoss]],
         dl_tr_lb: DataLoader,
         dl_tr_ulb: Optional[DataLoader],
         dl_ev: DataLoader
@@ -299,7 +307,7 @@ class Trainer():
             loss_lb = loss_fn_lb(preds_lb / temp, y_lb.to(self.device))
 
             # embedding based losses
-            if self.config['training']['loss_ulb'] in ['l2', 'huber', 'l2_head', 'huber_head']:
+            if self.config['training']['loss_ulb'] in ['l2', 'huber', 'l2_head', 'huber_head', 'simclr']:
                 if self.config['training']['loss_ulb'] in ['l2', 'huber']:
                     embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
                     embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
