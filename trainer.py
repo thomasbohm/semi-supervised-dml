@@ -39,16 +39,12 @@ class Trainer():
             self.config['dataset']['labeled_fraction'] * 100,
             self.config['mode']
         )
-        self.results_dir = './results/{}/{}/'.format(
-            config['dataset']['name'],
-            date
-        )
+        self.results_dir = f'./results/{config["dataset"]["name"]}/{date}/'
         if not osp.isdir(self.results_dir):
             os.makedirs(self.results_dir)
-        self.logger.info('Results saved to "{}"'.format(self.results_dir))
+        self.logger.info(f'Results saved to "{self.results_dir}"')
 
-        self.labeled_only = self.config['training']['loss_ulb'] == 'no' or \
-            self.config['training']['loss_ulb'] == '' or \
+        self.labeled_only = self.config['training']['loss_ulb'] == '' or \
             self.config['dataset']['labeled_fraction'] >= 1.0
 
     def start(self):
@@ -61,12 +57,10 @@ class Trainer():
         best_hypers = {}
         for run in range(1, num_runs + 1):
             if hyper_search:
-                self.logger.info('Search run: {}/{}'.format(run, num_runs))
+                self.logger.info(f'Search run: {run}/{num_runs}')
                 self.sample_hypers()
 
-            self.logger.info("Config:\n{}".format(
-                json.dumps(self.config, indent=4)
-            ))
+            self.logger.info(f'Config:\n{json.dumps(self.config, indent=4)}')
 
             seed_everything()
 
@@ -78,12 +72,10 @@ class Trainer():
                 neck=self.config['resnet']['bottleneck']
             )
             if torch.cuda.device_count() > 1:
-                self.logger.info('Using {} GPUs'.format(torch.cuda.device_count()))
+                self.logger.info(f'Using {torch.cuda.device_count()} GPUs')
                 model = nn.parallel.DataParallel(model)
             model = model.to(self.device)
-            self.logger.info(
-                'Loaded resnet50 with embedding dim {}.'.format(embed_size)
-            )
+            self.logger.info(f'Loaded resnet50 with embedding dim {embed_size}.')
 
             if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head']:
                 head_ulb = nn.Sequential(
@@ -163,9 +155,9 @@ class Trainer():
                 self.test_run(model, dl_ev)
 
         if hyper_search:
-            self.logger.info('Best Run: {}'.format(best_run))
-            self.logger.info('Best R@1: {:.4}'.format(best_recall_at_1 * 100))
-            self.logger.info('Best Hyperparameters:\n{}'.format(json.dumps(best_hypers, indent=4)))
+            self.logger.info(f'Best Run: {best_run}')
+            self.logger.info(f'Best R@1: {best_recall_at_1 * 100:.4}')
+            self.logger.info(f'Best Hyperparameters:\n{json.dumps(best_hypers, indent=4)}')
 
     def train_run(
         self,
@@ -183,7 +175,7 @@ class Trainer():
         best_recall_at_1 = 0.0
 
         for epoch in range(1, self.config['training']['epochs'] + 1):
-            self.logger.info('EPOCH {}/{}'.format(epoch, self.config['training']['epochs']))
+            self.logger.info(f'EPOCH {epoch}/{self.config["training"]["epochs"]}')
             start = time.time()
 
             if epoch == 30 or epoch == 50:
@@ -229,9 +221,8 @@ class Trainer():
                         osp.join(self.results_dir, self.filename)
                     )
 
-            self.evaluator.logger.info(
-                'Eval took {:.0f}s'.format(time.time() - eval_start))
-            self.logger.info('Epoch took {:.0f}s'.format(time.time() - start))
+            self.evaluator.logger.info(f'Eval took {time.time() - eval_start:.0f}s')
+            self.logger.info(f'Epoch took {time.time() - start:.0f}s')
 
         self.logger.info('-' * 50)
         self.logger.info('ALL TRAINING SCORES (EPOCH, RECALLS, NMI):')
@@ -239,12 +230,9 @@ class Trainer():
             self.logger.info('{}: {}, {:.1f}'.format(
                 epoch,
                 ['{:.1f}'.format(100 * r) for r in recalls],
-                100 * nmi)
-            )
-        self.logger.info('BEST R@1 (EPOCH {}): {:.3f}'.format(
-            best_epoch,
-            best_recall_at_1
-        ))
+                100 * nmi
+            ))
+        self.logger.info(f'BEST R@1 (EPOCH {best_epoch}): {best_recall_at_1:.3f}')
 
         return best_recall_at_1
 
@@ -273,7 +261,7 @@ class Trainer():
                 self.evaluator.create_tsne_plot(embeddings, y, path)
             
             if torch.isnan(loss):
-                self.logger.error("We have NaN numbers, closing\n\n\n")
+                self.logger.error('We have NaN numbers, closing\n\n\n')
                 return
 
             # self.logger.info('loss_lb: {}'.format(loss))
@@ -328,9 +316,9 @@ class Trainer():
                         osp.join(self.results_dir, f'tsne_train_ulb_w_{epoch}.png')
                     )
                     self.evaluator.create_tsne_plot(embeddings_ulb_s,
-                    y_ulb,
-                    osp.join(self.results_dir, f'tsne_train_ulb_s_{epoch}.png')
-                )
+                        y_ulb,
+                        osp.join(self.results_dir, f'tsne_train_ulb_s_{epoch}.png')
+                    )
                 loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
             
             # prediction based losses: 'kl', 'kl_head'
@@ -366,7 +354,7 @@ class Trainer():
                 loss_ulb *= epoch / self.config['training']['ulb_loss_warmup']
 
             if torch.isnan(loss_lb) or torch.isnan(loss_ulb):
-                self.logger.error("We have NaN numbers, closing\n\n\n")
+                self.logger.error('We have NaN numbers, closing\n\n\n')
                 return
 
             # self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
@@ -426,7 +414,7 @@ class Trainer():
             len(dset_lb),
             len(dset_ulb))
         )
-        self.logger.info('{} eval samples'.format(len(dset_eval)))
+        self.logger.info(f'{len(dset_eval)} eval samples')
 
         class_per_batch = self.config['training']['num_classes_iter']
         elements_per_class = self.config['training']['num_elements_class']
@@ -470,9 +458,9 @@ class Trainer():
                     drop_last=True,
                     pin_memory=True,
                 )
-            self.logger.info('Batch size labeled:   {}'.format(batch_size_lb))
-            self.logger.info('Batch size unlabeled: {}'.format(batch_size_ulb))
-            self.logger.info('Num batches: {}'.format(num_batches))
+            self.logger.info(f'Batch size labeled: {batch_size_lb}')
+            self.logger.info(f'Batch size unlabeled: {batch_size_ulb}')
+            self.logger.info(f'Num batches: {num_batches}')
             if self.labeled_only:
                 assert len(dl_train_lb) == num_batches
             else:
@@ -508,11 +496,11 @@ class Trainer():
         self.config['dataset'].update(dataset_config)
 
     def reduce_lr(self, model: nn.Module, optimizer: Optimizer):
-        self.logger.info("Reducing learning rate:")
+        self.logger.info('Reducing learning rate:')
         path = osp.join(self.results_dir, self.filename)
         model.load_state_dict(torch.load(path))
         for g in optimizer.param_groups:
-            self.logger.info('{} -> {}'.format(g['lr'], g['lr'] / 10))
+            self.logger.info(f'{g["lr"]} -> {g["lr"] / 10}')
             g['lr'] /= 10.
 
 
