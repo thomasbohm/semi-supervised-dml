@@ -4,11 +4,12 @@ import torch.nn.functional as F
 
 
 class NTXentLoss(nn.Module):
-    def __init__(self, batch_size, temperature=0.1):
+    def __init__(self, batch_size, device, temperature=0.1):
         super().__init__()
         self.batch_size = batch_size
         self.register_buffer("temperature", torch.tensor(temperature))
         self.register_buffer("negatives_mask", (~torch.eye(batch_size * 2, batch_size * 2, dtype=torch.bool)).float())
+        self.negatives_mask = self.negatives_mask.to(device)
             
     def forward(self, emb_i, emb_j):
         """

@@ -124,7 +124,7 @@ class Trainer():
                 batch_size_lb = class_per_batch * elements_per_class
                 batch_size_ulb = self.config['training']['ulb_batch_size_factor'] * batch_size_lb
 
-                loss_fn_ulb = NTXentLoss(batch_size=batch_size_ulb)
+                loss_fn_ulb = NTXentLoss(batch_size=batch_size_ulb, device=self.device)
             else:
                 self.logger.error(f'Unlabeled loss not supported: {self.config["training"]["loss_ulb"]}')
                 return
