@@ -94,7 +94,7 @@ class Trainer():
                 head_ulb = nn.parallel.DataParallel(head_ulb)
             head_ulb = head_ulb.to(self.device)
 
-            if 'head' in self.config['training']['loss_ulb']:
+            if 'head' in self.config['training']['loss_ulb'] or self.config['training']['loss_ulb'] == 'simclr':
                 params = list(set(model.parameters())) + list(set(head_ulb.parameters()))
             else:
                 params = model.parameters()
