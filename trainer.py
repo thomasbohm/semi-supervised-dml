@@ -65,8 +65,9 @@ class Trainer():
 
             seed_everything()
 
+            # ResNet
             num_classes = self.config['dataset']['train_classes']
-            model, embed_size = load_resnet50(
+            resnet, embed_size = load_resnet50(
                 num_classes=num_classes,
                 pretrained_path=self.config['resnet']['pretrained_path'],
                 reduction=self.config['resnet']['reduction'],
@@ -74,10 +75,11 @@ class Trainer():
             )
             if torch.cuda.device_count() > 1:
                 self.logger.info(f'Using {torch.cuda.device_count()} GPUs')
-                model = nn.parallel.DataParallel(model)
-            model = model.to(self.device)
+                resnet = nn.parallel.DataParallel(resnet)
+            resnet = resnet.to(self.device)
             self.logger.info(f'Loaded resnet50 with embedding dim {embed_size}.')
 
+            # Projection Head
             if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head', 'simclr']:
                 head_ulb = nn.Sequential(
                     nn.Linear(embed_size, 2 * embed_size),
@@ -94,36 +96,40 @@ class Trainer():
                 head_ulb = nn.parallel.DataParallel(head_ulb)
             head_ulb = head_ulb.to(self.device)
 
-            if 'head' in self.config['training']['loss_ulb'] or self.config['training']['loss_ulb'] == 'simclr':
-                params = list(set(model.parameters())) + list(set(head_ulb.parameters()))
+            if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head', 'kl_head', 'simclr']:
+                params = list(set(resnet.parameters())) + list(set(head_ulb.parameters()))
             else:
-                params = model.parameters()
+                params = resnet.parameters()
 
+            # Optimizer
             optimizer = RAdam(
                 params,
                 lr=self.config['training']['lr'],
                 weight_decay=self.config['training']['weight_decay']
             )
 
+            # Labeled Loss Function
             if self.config['training']['loss_lb'] == 'lsce':
                 loss_fn_lb = nn.CrossEntropyLoss(label_smoothing=0.1)
             else:
                 loss_fn_lb = nn.CrossEntropyLoss()
 
-            if self.config['training']['loss_ulb'] in ['l2', 'l2_head']:
+            # Unlabeled Loss Function
+            if self.config['training']['loss_ulb'] == '':
+                loss_fn_ulb = None
+            elif self.config['training']['loss_ulb'] in ['l2', 'l2_head']:
                 loss_fn_ulb = nn.MSELoss()
             elif self.config['training']['loss_ulb'] in ['kl', 'kl_head']:
                 loss_fn_ulb = nn.KLDivLoss(log_target=True, reduction='batchmean')
             elif self.config['training']['loss_ulb'] in ['huber', 'huber_head']:
                 loss_fn_ulb = nn.HuberLoss()
-            elif self.config['training']['loss_ulb'] == '':
-                loss_fn_ulb = None
+            elif self.config['training']['loss_ulb'] == 'ce':
+                loss_fn_ulb = nn.CrossEntropyLoss()
             elif self.config['training']['loss_ulb'] == 'simclr':
                 class_per_batch = self.config['training']['num_classes_iter']
                 elements_per_class = self.config['training']['num_elements_class']
                 batch_size_lb = class_per_batch * elements_per_class
                 batch_size_ulb = self.config['training']['ulb_batch_size_factor'] * batch_size_lb
-
                 loss_fn_ulb = NTXentLoss(batch_size=batch_size_ulb, device=self.device)
             else:
                 self.logger.error(f'Unlabeled loss not supported: {self.config["training"]["loss_ulb"]}')
@@ -139,7 +145,7 @@ class Trainer():
             if self.config['mode'] != 'test':
                 assert dl_tr_lb
                 recall_at_1 = self.train_run(
-                    model=model,
+                    model=resnet,
                     head_ulb=head_ulb,
                     optimizer=optimizer,
                     loss_fn_lb=loss_fn_lb,
@@ -160,7 +166,7 @@ class Trainer():
                     os.rename(osp.join(self.results_dir, self.filename),
                               osp.join(self.results_dir, filename))
             else:
-                self.test_run(model, dl_ev)
+                self.test_run(resnet, dl_ev)
 
         if hyper_search:
             self.logger.info(f'Best Run: {best_run}')
@@ -173,7 +179,7 @@ class Trainer():
         head_ulb: nn.Module,
         optimizer: Optimizer,
         loss_fn_lb: nn.CrossEntropyLoss,
-        loss_fn_ulb: Optional[Union[nn.MSELoss, nn.KLDivLoss, nn.HuberLoss, NTXentLoss]],
+        loss_fn_ulb: Optional[Union[nn.MSELoss, nn.KLDivLoss, nn.HuberLoss, NTXentLoss, nn.CrossEntropyLoss]],
         dl_tr_lb: DataLoader,
         dl_tr_ulb: Optional[DataLoader],
         dl_ev: DataLoader
@@ -329,9 +335,9 @@ class Trainer():
                     )
                 loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
             
-            # prediction based losses: 'kl', 'kl_head'
+            # prediction based losses: 'kl', 'kl_head', 'ce'
             else:
-                if self.config['training']['loss_ulb'] == 'kl':
+                if self.config['training']['loss_ulb'] in ['kl', 'ce']:
                     preds_ulb_w = preds[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
                     preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0] :]
                 elif self.config['training']['loss_ulb'] == 'kl_head':
@@ -342,6 +348,7 @@ class Trainer():
                 else:
                     self.logger.error(f'Unlabeled loss not supported: {self.config["training"]["loss_ulb"]}')
                     return
+
                 if plot_tsne and epoch % 10 == 0 and first_batch:
                     first_batch = False
                     self.evaluator.create_tsne_plot(
@@ -353,8 +360,10 @@ class Trainer():
                         y_ulb,
                         osp.join(self.results_dir, f'tsne_train_ulb_s_{epoch}.png')
                     )
-                preds_ulb_w = F.log_softmax(preds_ulb_w)
-                preds_ulb_s = F.log_softmax(preds_ulb_s)
+
+                if self.config['training']['loss_ulb'] in ['kl', 'kl_head']:
+                    preds_ulb_w = F.log_softmax(preds_ulb_w)
+                    preds_ulb_s = F.log_softmax(preds_ulb_s)
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
 
             # warm up
@@ -365,8 +374,9 @@ class Trainer():
                 self.logger.error('We have NaN numbers, closing\n\n\n')
                 return
 
+            loss_ulb *= self.config['training']['ulb_loss_weight']
             # self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
-            loss = loss_lb + self.config['training']['ulb_loss_weight'] * loss_ulb
+            loss = loss_lb + loss_ulb
             loss.backward()
             optimizer.step()
 
@@ -399,6 +409,7 @@ class Trainer():
         num_workers: int
     ) -> Tuple[Optional[DataLoader], Optional[DataLoader], DataLoader]:
         trans_train, trans_train_strong, trans_eval = get_transforms(
+            self.config['dataset']['transform_ulb_strong'],
             self.config['dataset']['random_erasing'],
             self.config['dataset']['randaugment_num_ops'],
             self.config['dataset']['randaugment_magnitude']

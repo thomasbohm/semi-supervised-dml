@@ -64,7 +64,7 @@ def split_dataset(root, train_labels, labeled_fraction):
     return lb_dset, ulb_dset, eval_dset
 
 
-def get_transforms(random_erasing: bool, randaugment_num_ops: int, randaugment_magnitude: int):
+def get_transforms(transform_ulb_strong: str, random_erasing: bool, randaugment_num_ops: int, randaugment_magnitude: int):
     mean = [0.485, 0.456, 0.406]
     std = [0.299, 0.224, 0.225]
     sz_resize = 256
@@ -77,30 +77,34 @@ def get_transforms(random_erasing: bool, randaugment_num_ops: int, randaugment_m
         transforms.ToTensor(),
         normalize_transform
     ]
-    transform_train_strong = [
-        transforms.RandAugment(num_ops=randaugment_num_ops, magnitude=randaugment_magnitude),
-        transforms.RandomResizedCrop(sz_crop),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize_transform
-    ]
 
-    transform_train_strong_simclr = [
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomResizedCrop(sz_crop),
-        transforms.RandomApply([
-            transforms.ColorJitter(
-                brightness=0.8,
-                contrast=0.8,
-                saturation=0.8,
-                hue=0.2
-            )
-        ], p=0.8),
-        transforms.RandomGrayscale(p=0.2),
-        transforms.GaussianBlur(23),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5,), (0.5,))
-    ]
+    if transform_ulb_strong == 'randaugment':
+        transform_train_strong = [
+            transforms.RandAugment(num_ops=randaugment_num_ops, magnitude=randaugment_magnitude),
+            transforms.RandomResizedCrop(sz_crop),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize_transform
+        ]
+    elif transform_ulb_strong == 'simclr':
+        transform_train_strong = [
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomResizedCrop(sz_crop),
+            transforms.RandomApply([
+                transforms.ColorJitter(
+                    brightness=0.8,
+                    contrast=0.8,
+                    saturation=0.8,
+                    hue=0.2
+                )
+            ], p=0.8),
+            transforms.RandomGrayscale(p=0.2),
+            transforms.GaussianBlur(23),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ]
+    else:
+        raise NotImplementedError(f'Strong transform not supported: "{transform_ulb_strong}"')
 
     if random_erasing:
         re_transform = RandomErasing(
