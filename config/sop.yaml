@@ -18,7 +18,6 @@ dataset:
 
 training:
   epochs: 20
-  ulb_loss_warmup: 0
   lr: 0.0001
   weight_decay: 0.000006
   num_classes_iter: 15
@@ -26,5 +25,6 @@ training:
   temperature: 0.11
   loss_lb: "lsce"
   loss_ulb: ""
+  loss_ulb_weight: 1
+  loss_ulb_warmup: 0
   ulb_batch_size_factor: 7
-  ulb_loss_weight: 1

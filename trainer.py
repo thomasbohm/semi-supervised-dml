@@ -372,14 +372,14 @@ class Trainer():
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
 
             # warm up
-            if epoch < self.config['training']['ulb_loss_warmup']:
-                loss_ulb *= epoch / self.config['training']['ulb_loss_warmup']
+            if epoch < self.config['training']['loss_ulb_warmup']:
+                loss_ulb *= epoch / self.config['training']['loss_ulb_warmup']
 
             if torch.isnan(loss_lb) or torch.isnan(loss_ulb):
                 self.logger.error('We have NaN numbers, closing\n\n\n')
                 return
 
-            loss_ulb *= self.config['training']['ulb_loss_weight']
+            loss_ulb *= self.config['training']['loss_ulb_weight']
             # self.logger.info(f'loss_lb: {loss_lb:.2f}, loss_ulb: {loss_ulb:.2f}')
             loss = loss_lb + loss_ulb
             loss.backward()
@@ -504,16 +504,20 @@ class Trainer():
         num_classes_iter, num_elements_class = random.choice([
             (8, 8), (6, 10), (5, 12), (4, 16), (3, 20), (10, 6), (12, 5), (16, 4), (20, 3)])
         train_config = {
+            'epochs': 40,
             'lr': 10 ** random.uniform(-5, -3),
             'weight_decay': 10 ** random.uniform(-15, -6),
             'num_classes_iter': num_classes_iter,
             'num_elements_class': num_elements_class,
             'temperature': random.random(),
-            'epochs': 40,
+            'loss_ulb': random.choice(['ce_soft', 'ce_hard']),
+            'loss_ulb_weight': random.choice([0.1, 1, 10]),
+            'loss_ulb_warmup': random.choice([0, 10, 20]),
         }
         self.config['training'].update(train_config)
 
         dataset_config = {
+            'transform_ulb_strong': random.choice(['randaugment', 'simclr']),
             'randaugment_num_ops': random.randint(1, 3),
             'randaugment_magnitude': random.randint(5, 15)
         }
