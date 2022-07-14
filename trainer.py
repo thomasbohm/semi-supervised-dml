@@ -123,7 +123,7 @@ class Trainer():
                 loss_fn_ulb = nn.KLDivLoss(log_target=True, reduction='batchmean')
             elif self.config['training']['loss_ulb'] in ['huber', 'huber_head']:
                 loss_fn_ulb = nn.HuberLoss()
-            elif self.config['training']['loss_ulb'] == 'ce':
+            elif self.config['training']['loss_ulb'] in ['ce_soft', 'ce_hard']:
                 loss_fn_ulb = nn.CrossEntropyLoss()
             elif self.config['training']['loss_ulb'] == 'simclr':
                 class_per_batch = self.config['training']['num_classes_iter']
@@ -335,9 +335,9 @@ class Trainer():
                     )
                 loss_ulb = loss_fn_ulb(embeddings_ulb_w, embeddings_ulb_s)
             
-            # prediction based losses: 'kl', 'kl_head', 'ce'
+            # prediction based losses: 'kl', 'kl_head', 'ce_soft', 'ce_hard'
             else:
-                if self.config['training']['loss_ulb'] in ['kl', 'ce']:
+                if self.config['training']['loss_ulb'] in ['kl', 'ce_soft', 'ce_hard']:
                     preds_ulb_w = preds[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
                     preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0] :]
                 elif self.config['training']['loss_ulb'] == 'kl_head':
@@ -364,6 +364,11 @@ class Trainer():
                 if self.config['training']['loss_ulb'] in ['kl', 'kl_head']:
                     preds_ulb_w = F.log_softmax(preds_ulb_w)
                     preds_ulb_s = F.log_softmax(preds_ulb_s)
+                if self.config['training']['loss_ulb'] in ['ce_soft']:
+                    preds_ulb_w = F.softmax(preds_ulb_w)
+                if self.config['training']['loss_ulb'] in ['ce_hard']:
+                    preds_ulb_w = preds_ulb_w.argmax(dim=1)
+
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
 
             # warm up
@@ -375,7 +380,7 @@ class Trainer():
                 return
 
             loss_ulb *= self.config['training']['ulb_loss_weight']
-            # self.logger.info('loss_lb: {}, loss_ulb: {}'.format(loss_lb, loss_ulb))
+            # self.logger.info(f'loss_lb: {loss_lb:.2f}, loss_ulb: {loss_ulb:.2f}')
             loss = loss_lb + loss_ulb
             loss.backward()
             optimizer.step()
