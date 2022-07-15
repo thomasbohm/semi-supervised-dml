@@ -513,7 +513,7 @@ class Trainer():
             'num_elements_class': num_elements_class,
             'loss_lb_temp': random.random(),
             'loss_ulb': random.choice(['ce_soft', 'ce_hard']),
-            'loss_ulb_weight': random.choice([0.1, 1, 10]),
+            'loss_ulb_weight': random.choice([1, 10]),
             'loss_ulb_warmup': random.choice([0, 10, 20]),
             'loss_ulb_temp': random.random(),
         }
