@@ -369,7 +369,7 @@ class Trainer():
                         preds_ulb_w = F.softmax(preds_ulb_w)
                     else:
                         preds_ulb_w = preds_ulb_w.argmax(dim=1)
-                    preds_ulb_w /= self.config['training']['loss_ulb_temp']
+                    preds_ulb_s = preds_ulb_s / self.config['training']['loss_ulb_temp']
 
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
 
