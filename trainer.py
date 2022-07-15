@@ -259,7 +259,7 @@ class Trainer():
         epoch: int,
         plot_tsne: bool = False
     ):
-        temp = self.config['training']['temperature']
+        temp = self.config['training']['loss_lb_temp']
         first_batch = True
         for (x, y) in dl_tr_lb:
             optimizer.zero_grad()
@@ -294,7 +294,7 @@ class Trainer():
         epoch: int,
         plot_tsne: bool = False
     ):
-        temp = self.config['training']['temperature']
+        temp = self.config['training']['loss_lb_temp']
         first_batch = True
         for (x_lb, y_lb), (x_ulb_w, x_ulb_s, y_ulb) in zip(dl_tr_lb, dl_tr_ulb):
             optimizer.zero_grad()
@@ -364,10 +364,12 @@ class Trainer():
                 if self.config['training']['loss_ulb'] in ['kl', 'kl_head']:
                     preds_ulb_w = F.log_softmax(preds_ulb_w)
                     preds_ulb_s = F.log_softmax(preds_ulb_s)
-                if self.config['training']['loss_ulb'] in ['ce_soft']:
-                    preds_ulb_w = F.softmax(preds_ulb_w)
-                if self.config['training']['loss_ulb'] in ['ce_hard']:
-                    preds_ulb_w = preds_ulb_w.argmax(dim=1)
+                elif self.config['training']['loss_ulb'] in ['ce_soft', 'ce_hard']:
+                    if self.config['training']['loss_ulb'] == 'ce_soft':
+                        preds_ulb_w = F.softmax(preds_ulb_w)
+                    else:
+                        preds_ulb_w = preds_ulb_w.argmax(dim=1)
+                    preds_ulb_w /= self.config['training']['loss_ulb_temp']
 
                 loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
 
@@ -509,10 +511,11 @@ class Trainer():
             'weight_decay': 10 ** random.uniform(-15, -6),
             'num_classes_iter': num_classes_iter,
             'num_elements_class': num_elements_class,
-            'temperature': random.random(),
+            'loss_lb_temp': random.random(),
             'loss_ulb': random.choice(['ce_soft', 'ce_hard']),
             'loss_ulb_weight': random.choice([0.1, 1, 10]),
             'loss_ulb_warmup': random.choice([0, 10, 20]),
+            'loss_ulb_temp': random.random(),
         }
         self.config['training'].update(train_config)
 
