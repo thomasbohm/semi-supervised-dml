@@ -521,7 +521,7 @@ class Trainer():
 
         dataset_config = {
             'transform_ulb_strong': random.choice(['randaugment', 'simclr']),
-            'randaugment_num_ops': random.randint(1, 3),
+            'randaugment_num_ops': random.randint(2, 4),
             'randaugment_magnitude': random.randint(5, 15)
         }
         self.config['dataset'].update(dataset_config)
