@@ -123,8 +123,10 @@ class Trainer():
                 loss_fn_ulb = nn.KLDivLoss(log_target=True, reduction='batchmean')
             elif self.config['training']['loss_ulb'] in ['huber', 'huber_head']:
                 loss_fn_ulb = nn.HuberLoss()
-            elif self.config['training']['loss_ulb'] in ['ce_soft', 'ce_hard', 'ce_thresh']:
+            elif self.config['training']['loss_ulb'] in ['ce_soft', 'ce_hard']:
                 loss_fn_ulb = nn.CrossEntropyLoss()
+            elif self.config['training']['loss_ulb'] in ['ce_thresh']:
+                loss_fn_ulb = nn.CrossEntropyLoss(reduction='none')
             elif self.config['training']['loss_ulb'] == 'simclr':
                 class_per_batch = self.config['training']['num_classes_iter']
                 elements_per_class = self.config['training']['num_elements_class']
@@ -364,20 +366,21 @@ class Trainer():
                 if self.config['training']['loss_ulb'] in ['kl', 'kl_head']:
                     preds_ulb_w = F.log_softmax(preds_ulb_w)
                     preds_ulb_s = F.log_softmax(preds_ulb_s)
-                elif self.config['training']['loss_ulb'] in ['ce_soft', 'ce_hard', 'ce_thresh']:
+                elif self.config['training']['loss_ulb'] in ['ce_soft', 'ce_hard']:
                     if self.config['training']['loss_ulb'] == 'ce_soft':
                         preds_ulb_w = F.softmax(preds_ulb_w)
                         preds_ulb_s = preds_ulb_s / self.config['training']['loss_ulb_temp']
-                    elif self.config['training']['loss_ulb'] == 'ce_thresh':
-                        preds_ulb_w = F.softmax(preds_ulb_w)
-                        threshold = self.config['training']['loss_ulb_threshold']
-                        preds_max, preds_argmax = preds_ulb_w.max(dim=1)
-                        preds_ulb_s = preds_ulb_s[preds_max > threshold]
-                        preds_ulb_w = preds_argmax[preds_max > threshold]
                     else:
                         preds_ulb_w = preds_ulb_w.argmax(dim=1)
 
-                loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
+                if self.config['training']['loss_ulb'] == 'ce_thresh':
+                    preds_ulb_w = F.softmax(preds_ulb_w)
+                    preds_max, preds_argmax = preds_ulb_w.max(dim=1)
+                    mask = preds_max.gt(self.config['training']['loss_ulb_threshold'])
+                    loss_ulb = loss_fn_ulb(preds_ulb_s, preds_argmax) * mask
+                    loss_ulb = loss_ulb.mean()
+                else:
+                    loss_ulb = loss_fn_ulb(preds_ulb_s, preds_ulb_w)
 
             # warm up
             if epoch < self.config['training']['loss_ulb_warmup']:
