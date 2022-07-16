@@ -28,4 +28,5 @@ training:
   loss_ulb_weight: 1
   loss_ulb_warmup: 0
   loss_ulb_temp: 0.11
+  loss_ulb_threshold: 0.8
   ulb_batch_size_factor: 7
