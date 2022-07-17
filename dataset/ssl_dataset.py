@@ -16,7 +16,8 @@ def create_datasets(
     labeled_fraction,
     transform_train,
     transform_train_strong,
-    transform_eval
+    transform_eval,
+    train_lb_uses_strong
 ):
     data_lb, data_ulb, data_eval = split_dataset(data_path,
                                                  range(train_classes),
@@ -25,7 +26,10 @@ def create_datasets(
     assert len(data_lb) + len(data_ulb) + \
         len(data_eval) == len(ImageFolder(data_path))
 
-    dset_lb = SSLDataset(data_lb, transform=transform_train, is_ulb=False)
+    if not train_lb_uses_strong:
+        dset_lb = SSLDataset(data_lb, transform=transform_train, is_ulb=False)
+    else:
+        dset_lb = SSLDataset(data_lb, transform=transform_train_strong, is_ulb=False)
     dset_ulb = SSLDataset(
         data_ulb,
         transform=transform_train,
