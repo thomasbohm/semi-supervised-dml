@@ -462,7 +462,7 @@ class Trainer():
         batch_size_ulb = self.config['training']['ulb_batch_size_factor'] * batch_size_lb
 
         if not self.labeled_only:
-            num_batches = len(dset_ulb) // batch_size_ulb
+            num_batches = max(len(dset_ulb) // batch_size_ulb, len(dset_lb) // batch_size_lb)
         else:
             num_batches = len(dset_lb) // batch_size_lb
 
