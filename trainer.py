@@ -7,6 +7,7 @@ import random
 import time
 from datetime import datetime
 from typing import Optional, Tuple, Union
+from collections import Counter
 
 import numpy as np
 import torch
@@ -275,7 +276,8 @@ class Trainer():
                 first_batch = False
                 path = osp.join(self.results_dir, f'tsne_train_lb_{epoch}.png')
                 self.evaluator.create_tsne_plot(embeddings, y, path)
-            
+                self.logger.info(f'Counter(y_lb): {Counter(y.tolist()).most_common()}')
+
             if torch.isnan(loss):
                 self.logger.error('We have NaN numbers, closing\n\n\n')
                 return
@@ -312,6 +314,7 @@ class Trainer():
                     y_lb,
                     osp.join(self.results_dir, f'tsne_train_lb_{epoch}.png')
                 )
+                self.logger.info(f'Counter(y_lb): {Counter(y_lb.tolist()).most_common()}')
             loss_lb = loss_fn_lb(preds_lb / temp, y_lb.to(self.device))
 
             # embedding based losses
