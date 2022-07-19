@@ -276,13 +276,13 @@ class Trainer():
                 first_batch = False
                 path = osp.join(self.results_dir, f'tsne_train_lb_{epoch}.png')
                 self.evaluator.create_tsne_plot(embeddings, y, path)
-                self.logger.info(f'Counter(y_lb): {Counter(y.tolist()).most_common()}')
+                # self.logger.info(f'Counter(y_lb): {Counter(y.tolist()).most_common()}')
 
             if torch.isnan(loss):
                 self.logger.error('We have NaN numbers, closing\n\n\n')
                 return
 
-            self.logger.info('loss_lb: {}'.format(loss))
+            # self.logger.info('loss_lb: {}'.format(loss))
             loss.backward()
             optimizer.step()
 
@@ -314,7 +314,7 @@ class Trainer():
                     y_lb,
                     osp.join(self.results_dir, f'tsne_train_lb_{epoch}.png')
                 )
-                self.logger.info(f'Counter(y_lb): {Counter(y_lb.tolist()).most_common()}')
+                # self.logger.info(f'Counter(y_lb): {Counter(y_lb.tolist()).most_common()}')
             loss_lb = loss_fn_lb(preds_lb / temp, y_lb.to(self.device))
 
             # embedding based losses
@@ -394,7 +394,7 @@ class Trainer():
                 return
 
             loss_ulb *= self.config['training']['loss_ulb_weight']
-            self.logger.info(f'loss_lb: {loss_lb:.2f}, loss_ulb: {loss_ulb:.2f}')
+            # self.logger.info(f'loss_lb: {loss_lb:.2f}, loss_ulb: {loss_ulb:.2f}')
             loss = loss_lb + loss_ulb
             loss.backward()
             optimizer.step()
