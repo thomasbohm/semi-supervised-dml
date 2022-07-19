@@ -267,6 +267,10 @@ class Trainer():
         for (x, y) in dl_tr_lb:
             optimizer.zero_grad()
 
+            if first_batch:
+                self.logger.info(f'Counter(y_lb): {Counter(y.tolist()).most_common()}')
+                self.logger.info(f'First img: {x[0]}')
+
             x = x.to(self.device)
             y = y.to(self.device)
             preds, embeddings = model(x, output_option='norm', val=False)
@@ -282,7 +286,7 @@ class Trainer():
                 self.logger.error('We have NaN numbers, closing\n\n\n')
                 return
 
-            # self.logger.info('loss_lb: {}'.format(loss))
+            self.logger.info('loss_lb: {}'.format(loss))
             loss.backward()
             optimizer.step()
 
@@ -302,6 +306,10 @@ class Trainer():
         first_batch = True
         for (x_lb, y_lb), (x_ulb_w, x_ulb_s, y_ulb) in zip(dl_tr_lb, dl_tr_ulb):
             optimizer.zero_grad()
+
+            if first_batch:
+                self.logger.info(f'Counter(y_lb): {Counter(y_ulb.tolist()).most_common()}')
+                self.logger.info(f'First img: {x_ulb_w[0]}')
 
             x = torch.cat((x_lb, x_ulb_w, x_ulb_s))
             x = x.to(self.device)
@@ -394,7 +402,7 @@ class Trainer():
                 return
 
             loss_ulb *= self.config['training']['loss_ulb_weight']
-            # self.logger.info(f'loss_lb: {loss_lb:.2f}, loss_ulb: {loss_ulb:.2f}')
+            self.logger.info(f'loss_lb: {loss_lb:.2f}, loss_ulb: {loss_ulb:.2f}')
             loss = loss_lb + loss_ulb
             loss.backward()
             optimizer.step()
