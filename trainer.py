@@ -81,23 +81,23 @@ class Trainer():
             self.logger.info(f'Loaded resnet50 with embedding dim {embed_size}.')
 
             # Projection Head
-            if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head', 'simclr']:
-                head_ulb = nn.Sequential(
-                    nn.Linear(embed_size, 2 * embed_size),
-                    nn.ReLU(),
-                    nn.Linear(2 * embed_size, embed_size)
-                )
-            else:
-                head_ulb = nn.Sequential(
-                    nn.Linear(num_classes, 4 * num_classes),
-                    nn.ReLU(),
-                    nn.Linear(4 * num_classes, num_classes)
-                )
-            if torch.cuda.device_count() > 1:
-                head_ulb = nn.parallel.DataParallel(head_ulb)
-            head_ulb = head_ulb.to(self.device)
-
+            head_ulb = None
             if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head', 'kl_head', 'simclr']:
+                if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head', 'simclr']:
+                    head_ulb = nn.Sequential(
+                        nn.Linear(embed_size, 2 * embed_size),
+                        nn.ReLU(),
+                        nn.Linear(2 * embed_size, embed_size)
+                    )
+                else:
+                    head_ulb = nn.Sequential(
+                        nn.Linear(num_classes, 4 * num_classes),
+                        nn.ReLU(),
+                        nn.Linear(4 * num_classes, num_classes)
+                    )
+                if torch.cuda.device_count() > 1:
+                    head_ulb = nn.parallel.DataParallel(head_ulb)
+                head_ulb = head_ulb.to(self.device)
                 params = list(set(resnet.parameters())) + list(set(head_ulb.parameters()))
             else:
                 params = resnet.parameters()
@@ -179,7 +179,7 @@ class Trainer():
     def train_run(
         self,
         model: nn.Module,
-        head_ulb: nn.Module,
+        head_ulb: Optional[nn.Module],
         optimizer: Optimizer,
         loss_fn_lb: nn.CrossEntropyLoss,
         loss_fn_ulb: Optional[Union[nn.MSELoss, nn.KLDivLoss, nn.HuberLoss, NTXentLoss, nn.CrossEntropyLoss]],
@@ -291,7 +291,7 @@ class Trainer():
         dl_tr_lb: DataLoader,
         dl_tr_ulb: DataLoader,
         model: nn.Module,
-        head_ulb: nn.Module,
+        head_ulb: Optional[nn.Module],
         optimizer: Optimizer,
         loss_fn_lb: nn.Module,
         loss_fn_ulb: nn.Module,
@@ -323,6 +323,7 @@ class Trainer():
                     embeddings_ulb_w = embeddings[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
                     embeddings_ulb_s = embeddings[x_lb.shape[0] + x_ulb_w.shape[0]:]
                 else:
+                    assert head_ulb
                     embeddings_ulb = embeddings[x_lb.shape[0]:]
                     embeddings_ulb = head_ulb(embeddings_ulb)
                     embeddings_ulb_w = embeddings_ulb[:x_ulb_w.shape[0]]
@@ -346,6 +347,7 @@ class Trainer():
                     preds_ulb_w = preds[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
                     preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0] :]
                 elif self.config['training']['loss_ulb'] == 'kl_head':
+                    assert head_ulb
                     preds_ulb = preds[x_lb.shape[0]:]
                     preds_ulb = head_ulb(preds_ulb)
                     preds_ulb_w = preds_ulb[:x_ulb_w.shape[0]]
