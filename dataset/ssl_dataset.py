@@ -64,7 +64,7 @@ def split_dataset(root, train_labels, labeled_fraction):
 
     lb_dset, ulb_dset = Subset(dset, lb_indices), Subset(dset, ulb_indices)
     eval_dset = Subset(dset, eval_indices)
-    print('lb_indices: ', lb_indices)
+
     return lb_dset, ulb_dset, eval_dset
 
 
