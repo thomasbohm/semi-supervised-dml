@@ -143,17 +143,18 @@ class SSLDataset(Dataset):
     def __getitem__(self, idx):
         """
         If is labeled dataset,
-            return weak_augment_image, target
+            return weak_augment_image, target, path
         else:
-            return weak_augment_image, strong_augment_image, target
+            return weak_augment_image, strong_augment_image, target, path
         """
         img, target = self.data[idx]
         transformed = self.transform(img) if self.transform else img
+        path = self.data.dataset.samples[self.data.indices[idx]][0]
 
         if not self.is_ulb:
-            return transformed, target
+            return transformed, target, path
         else:
-            return transformed, self.strong_transform(img), target
+            return transformed, self.strong_transform(img), target, path
 
     def __len__(self):
         return len(self.targets)

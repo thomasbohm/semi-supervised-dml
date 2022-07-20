@@ -59,7 +59,7 @@ class Evaluator():
     def predict_batchwise(self, model, dataloader):
         fc7s, targets = [], []
         with torch.no_grad():
-            for x, y in dataloader:
+            for x, y, p in dataloader:
                 x = x.to(self.device)
                 try:
                     _, fc7 = model(x, output_option='plain', val=True)

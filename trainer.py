@@ -264,7 +264,7 @@ class Trainer():
     ):
         temp = self.config['training']['loss_lb_temp']
         first_batch = True
-        for (x, y) in dl_tr_lb:
+        for (x, y, p) in dl_tr_lb:
             optimizer.zero_grad()
 
             x = x.to(self.device)
@@ -300,7 +300,7 @@ class Trainer():
     ):
         temp = self.config['training']['loss_lb_temp']
         first_batch = True
-        for (x_lb, y_lb), (x_ulb_w, x_ulb_s, y_ulb) in zip(dl_tr_lb, dl_tr_ulb):
+        for (x_lb, y_lb, p_lb), (x_ulb_w, x_ulb_s, y_ulb, p_ulb) in zip(dl_tr_lb, dl_tr_ulb):
             optimizer.zero_grad()
 
             x = torch.cat((x_lb, x_ulb_w, x_ulb_s))
