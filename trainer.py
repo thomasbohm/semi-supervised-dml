@@ -522,23 +522,19 @@ class Trainer():
             (8, 8), (6, 10), (5, 12), (4, 16), (3, 20), (10, 6), (12, 5), (16, 4), (20, 3)])
         train_config = {
             'epochs': 40,
-            #'lr': 10 ** random.uniform(-5, -3),
-            #'weight_decay': 10 ** random.uniform(-15, -6),
-            #'num_classes_iter': num_classes_iter,
-            #'num_elements_class': num_elements_class,
-            #'loss_lb_temp': random.random(),
-            #'loss_ulb': random.choice(['ce_soft', 'ce_hard']),
-            'loss_ulb_weight': random.choice([5, 10, 15, 20]),
-            #'loss_ulb_warmup': random.choice([0, 10, 20]),
+            'lr': 10 ** random.uniform(-5, -3),
+            'weight_decay': 10 ** random.uniform(-15, -6),
+            'num_classes_iter': num_classes_iter,
+            'num_elements_class': num_elements_class,
+            'loss_lb_temp': random.random(),
+            'loss_ulb_weight': random.choice([1, 5, 10, 15, 20]),
             'loss_ulb_thresh': random.choice([0.7, 0.75, 0.8, 0.85, 0.9]),
         }
         self.config['training'].update(train_config)
 
         dataset_config = {
-            #'transform_ulb_strong': random.choice(['randaugment', 'simclr']),
-            #'randaugment_num_ops': random.randint(2, 4),
-            #'randaugment_magnitude': random.randint(5, 15),
-            'transform_lb_strong': random.random() > 0.5,
+            'randaugment_num_ops': random.randint(2, 4),
+            'randaugment_magnitude': random.randint(5, 15),
         }
         self.config['dataset'].update(dataset_config)
 

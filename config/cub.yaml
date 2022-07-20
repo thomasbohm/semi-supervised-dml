@@ -23,7 +23,7 @@ training:
   weight_decay: 0.000006
   num_classes_iter: 6
   num_elements_class: 9
-  loss_lb: "lsce"
+  loss_lb: "ce"
   loss_lb_temp: 0.11
   loss_ulb: ""
   loss_ulb_weight: 1
