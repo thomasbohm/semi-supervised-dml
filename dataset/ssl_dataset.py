@@ -42,7 +42,7 @@ def create_datasets(
 
 
 def split_dataset(root, train_labels, labeled_fraction):
-    dset = ImageFolder(root=os.path.join(root, 'images'))
+    dset = ImageFolder(root=root)
     cls_to_indices = defaultdict(list)
 
     eval_indices = []

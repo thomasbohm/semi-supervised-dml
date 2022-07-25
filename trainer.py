@@ -442,7 +442,7 @@ class Trainer():
         ))
 
         dset_lb, dset_ulb, dset_eval = create_datasets(
-            data_path,
+            osp.join(data_path, 'images'),
             train_classes,
             labeled_fraction,
             trans_train,
