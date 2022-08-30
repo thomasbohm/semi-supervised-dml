@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from net.attention import MultiHeadDotProduct
 import torch_geometric.nn as geom_nn
 
 
@@ -8,7 +9,8 @@ class GNNModel(nn.Module):
         super().__init__()
 
         self.layers = nn.ModuleList([
-            geom_nn.GATConv(embed_size, embed_size, heads=2),
+            MultiHeadDotProduct(embed_size, nhead=2, aggr='add', dropout=0.0),
+            #geom_nn.GATConv(embed_size, embed_size, heads=2),
             nn.ReLU(),
             nn.Dropout(),                                 
         ])
@@ -27,7 +29,7 @@ class GNNModel(nn.Module):
         edge_index = self.get_edge_index(x).to(self.device)
         
         for layer in self.layers:
-            if isinstance(layer, geom_nn.MessagePassing):
+            if isinstance(layer, (geom_nn.MessagePassing, MultiHeadDotProduct)):
                 x = layer(x, edge_index)
             else:
                 x = layer(x)

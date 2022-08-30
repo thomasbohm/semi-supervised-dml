@@ -289,7 +289,7 @@ class Trainer():
             preds, embeddings = model(x, output_option='norm', val=False)
             loss = loss_fn_lb(preds / temp, y)
 
-            if 'gnn' in self.config['model']:
+            if 'gnn' in self.config['model'].split('_'):
                 assert gnn_model and gnn_loss_fn
                 preds, embeddings = gnn_model(embeddings)
                 loss_gnn = gnn_loss_fn(preds, y).mean()
