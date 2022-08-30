@@ -1,5 +1,7 @@
 mode: "train"
 
+model: "backbone"
+
 resnet:
   pretrained_path: "no"
   reduction: 4

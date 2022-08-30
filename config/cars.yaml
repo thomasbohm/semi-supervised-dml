@@ -1,5 +1,7 @@
 mode: "hyper"
 
+model: "backbone"
+
 resnet:
   pretrained_path: "no"
   reduction: 4

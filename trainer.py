@@ -19,6 +19,7 @@ from torch.utils.data import DataLoader, RandomSampler
 from dataset.m_per_class_sampler import MPerClassSampler
 from dataset.ssl_dataset import create_datasets, get_transforms
 from evaluation.utils import Evaluator
+from net.gnn import GNNModel
 from net.load_net import load_resnet50
 from RAdam import RAdam
 from net.loss import NTXentLoss
@@ -102,6 +103,14 @@ class Trainer():
             else:
                 params = resnet.parameters()
 
+            gnn = None
+            loss_fn_gnn = None
+            if 'gnn' in self.config['model'].split('_'):
+                gnn = GNNModel(embed_size, num_classes, num_classes, self.device)
+                gnn = gnn.to(self.device)
+                params = list(set(resnet.parameters())) + list(set(gnn.parameters()))
+                loss_fn_gnn = nn.CrossEntropyLoss(reduction='none')
+
             # Optimizer
             optimizer = RAdam(
                 params,
@@ -155,7 +164,9 @@ class Trainer():
                     loss_fn_ulb=loss_fn_ulb,
                     dl_tr_lb=dl_tr_lb,
                     dl_tr_ulb=dl_tr_ulb,
-                    dl_ev=dl_ev
+                    dl_ev=dl_ev,
+                    gnn_model=gnn,
+                    gnn_loss_fn=loss_fn_gnn
                 )
                 if recall_at_1 > best_recall_at_1:
                     best_run = run
@@ -185,7 +196,9 @@ class Trainer():
         loss_fn_ulb: Optional[Union[nn.MSELoss, nn.KLDivLoss, nn.HuberLoss, NTXentLoss, nn.CrossEntropyLoss]],
         dl_tr_lb: DataLoader,
         dl_tr_ulb: Optional[DataLoader],
-        dl_ev: DataLoader
+        dl_ev: DataLoader,
+        gnn_model: Optional[GNNModel],
+        gnn_loss_fn: Optional[nn.CrossEntropyLoss]
     ):
         scores = []
         best_epoch = -1
@@ -205,7 +218,9 @@ class Trainer():
                     optimizer,
                     loss_fn_lb,
                     epoch,
-                    self.config['mode'] == 'train'
+                    self.config['mode'] == 'train',
+                    gnn_model,
+                    gnn_loss_fn
                 )
             else:
                 assert dl_tr_ulb and loss_fn_ulb
@@ -260,7 +275,9 @@ class Trainer():
         optimizer: Optimizer,
         loss_fn_lb: nn.Module,
         epoch: int,
-        plot_tsne: bool = False
+        plot_tsne: bool,
+        gnn_model: Optional[GNNModel],
+        gnn_loss_fn: Optional[nn.CrossEntropyLoss]
     ):
         temp = self.config['training']['loss_lb_temp']
         first_batch = True
@@ -271,6 +288,12 @@ class Trainer():
             y = y.to(self.device)
             preds, embeddings = model(x, output_option='norm', val=False)
             loss = loss_fn_lb(preds / temp, y)
+
+            if 'gnn' in self.config['model']:
+                assert gnn_model and gnn_loss_fn
+                preds, embeddings = gnn_model(embeddings)
+                loss_gnn = gnn_loss_fn(preds, y).mean()
+                loss += loss_gnn
 
             if plot_tsne and epoch % 10 == 0 and first_batch:
                 first_batch = False
