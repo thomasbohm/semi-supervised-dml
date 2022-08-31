@@ -1,23 +1,24 @@
 import torch
 import torch.nn as nn
-from net.attention import MultiHeadDotProduct
 import torch_geometric.nn as geom_nn
+
+from net.attention import MultiHeadDotProduct
 
 
 class GNNModel(nn.Module):
-    def __init__(self, embed_size, output_size, num_proxies, device):
+    def __init__(self, embed_dim, output_dim, num_proxies, device):
         super().__init__()
 
         self.layers = nn.ModuleList([
-            MultiHeadDotProduct(embed_size, nhead=2, aggr='add', dropout=0.0),
-            #geom_nn.GATConv(embed_size, embed_size, heads=2),
+            MultiHeadDotProduct(embed_dim, nhead=2, aggr='add', dropout=0.0),
+            #geom_nn.GATConv(embed_dim, embed_dim, heads=2),
             nn.ReLU(),
             nn.Dropout(),                                 
         ])
 
-        self.fc = nn.Linear(embed_size * 2, output_size)
+        self.fc = nn.Linear(embed_dim, output_dim)
 
-        self.proxies = nn.parameter.Parameter(torch.randn((num_proxies, embed_size))).to(device)
+        self.proxies = nn.parameter.Parameter(torch.randn((num_proxies, embed_dim))).to(device)
         self.num_proxies = num_proxies
         self.device = device
 
@@ -49,6 +50,5 @@ class GNNModel(nn.Module):
                 edges.append([i + self.num_proxies, p])
         
         edge_index = torch.tensor(edges, dtype=torch.long).t()
-        #print(edge_index)
-        #print()
+
         return edge_index

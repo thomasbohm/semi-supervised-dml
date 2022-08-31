@@ -291,7 +291,9 @@ class Trainer():
 
             if 'gnn' in self.config['model'].split('_'):
                 assert gnn_model and gnn_loss_fn
+                torch.use_deterministic_algorithms(False)
                 preds, embeddings = gnn_model(embeddings)
+                torch.use_deterministic_algorithms(True)
                 loss_gnn = gnn_loss_fn(preds, y).mean()
                 loss += loss_gnn
 
@@ -541,9 +543,11 @@ class Trainer():
 
     def sample_hypers(self):
         random.seed()
-        num_classes_iter, num_elements_class = random.choice([
-            (8, 8), (6, 10), (5, 12), (4, 16), (3, 20), (10, 6), (12, 5), (16, 4), (20, 3)])
-        #num_classes_iter, num_elements_class = random.choice([(10, 6), (12, 5), (16, 4), (20, 3)])
+        if self.config['dataset']['name'] != 'SOP':
+            num_classes_iter, num_elements_class = random.choice([
+                (8, 8), (6, 10), (5, 12), (4, 16), (3, 20), (10, 6), (12, 5), (16, 4), (20, 3)])
+        else:
+            num_classes_iter, num_elements_class = random.choice([(10, 6), (12, 5), (16, 4), (20, 3)])
         train_config = {
             'epochs': 40,
             'lr': 10 ** random.uniform(-5, -3),

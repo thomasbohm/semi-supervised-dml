@@ -1,7 +1,8 @@
-from torch import nn
-from torch_scatter import scatter_max, scatter_add, scatter_mean
-import torch
 import math
+
+import torch
+from torch import nn
+from torch_scatter import scatter_add, scatter_max, scatter_mean
 
 
 class MultiHeadDotProduct(nn.Module):
@@ -9,29 +10,21 @@ class MultiHeadDotProduct(nn.Module):
     Multi head attention like in transformers
     embed_dim: dimension of input embedding
     nhead: number of attention heads
+    aggr: available are ['add', 'mean', 'max']
+    dropout: use 0 if no dropout is needed
     """
     def __init__(self, embed_dim: int, nhead: int, aggr: str, dropout: float):
         super().__init__()
-        print("MultiHeadDotProduct")
         self.embed_dim = embed_dim
         self.hdim = embed_dim // nhead
         self.nhead = nhead
         
         if aggr == "add":
-            self.aggr = lambda out, row, dim, x_size: scatter_add(out,
-                                                                  row,
-                                                                  dim=dim,
-                                                                  dim_size=x_size)
+            self.aggr = lambda out, row, dim, x_size: scatter_add(out, row, dim=dim, dim_size=x_size)
         if aggr == "mean":
-            self.aggr = lambda out, row, dim, x_size: scatter_mean(out,
-                                                                   row,
-                                                                   dim=dim,
-                                                                   dim_size=x_size)
+            self.aggr = lambda out, row, dim, x_size: scatter_mean(out, row, dim=dim, dim_size=x_size)
         else: #if aggr == "max":
-            self.aggr = lambda out, row, dim, x_size: scatter_max(out, 
-                                                                  row,
-                                                                  dim=dim,
-                                                                  dim_size=x_size)
+            self.aggr = lambda out, row, dim, x_size: scatter_max(out, row, dim=dim, dim_size=x_size)
 
         # FC Layers for input
         self.q_linear = nn.Linear(embed_dim, embed_dim)
