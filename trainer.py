@@ -445,7 +445,7 @@ class Trainer():
                 mask_gnn = torch.cat((torch.ones(x_lb.shape[0], device=self.device), mask_gnn))
 
                 x_gnn = torch.cat((preds_gnn_lb, preds_gnn_ulb_s))
-                y_gnn = torch.cat((y_lb, preds_gnn_argmax))
+                y_gnn = torch.cat((y_lb.to(self.device), preds_gnn_argmax))
 
                 loss_gnn = gnn_loss_fn(x_gnn, y_gnn) * mask_gnn
                 loss_gnn = loss_gnn.mean()
