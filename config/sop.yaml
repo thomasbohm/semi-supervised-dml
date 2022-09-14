@@ -12,7 +12,7 @@ dataset:
   name: "SOP"
   train_classes: 11318
   labeled_fraction: 0.1
-  transform_lb_strong: True
+  transform_lb_strong: False
   transform_ulb_strong: "randaugment"
   random_erasing: False
   randaugment_num_ops: 2
