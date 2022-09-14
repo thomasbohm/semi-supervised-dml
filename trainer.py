@@ -233,7 +233,9 @@ class Trainer():
                     loss_fn_lb,
                     loss_fn_ulb,
                     epoch,
-                    self.config['mode'] == 'train'
+                    self.config['mode'] == 'train',
+                    gnn_model,
+                    gnn_loss_fn
                 )
             eval_start = time.time()
             with torch.no_grad():
@@ -321,7 +323,9 @@ class Trainer():
         loss_fn_lb: nn.Module,
         loss_fn_ulb: nn.Module,
         epoch: int,
-        plot_tsne: bool = False
+        plot_tsne: bool,
+        gnn_model: Optional[GNNModel],
+        gnn_loss_fn: Optional[nn.CrossEntropyLoss]
     ):
         temp = self.config['training']['loss_lb_temp']
         first_batch = True
@@ -423,6 +427,31 @@ class Trainer():
             loss_ulb *= self.config['training']['loss_ulb_weight']
             # self.logger.info(f'loss_lb: {loss_lb:.2f}, loss_ulb: {loss_ulb:.2f}')
             loss = loss_lb + loss_ulb
+
+            if 'gnn' in self.config['model'].split('_'):
+                assert gnn_model and gnn_loss_fn
+                torch.use_deterministic_algorithms(False)
+                preds_gnn, embeddings_gnn = gnn_model(embeddings)
+                torch.use_deterministic_algorithms(True)
+
+                preds_gnn_lb = preds_gnn[:x_lb.shape[0]]
+                preds_gnn_ulb_w = preds_gnn[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
+                preds_gnn_ulb_s = preds_gnn[x_lb.shape[0] + x_ulb_w.shape[0] :]
+
+                preds_gnn_ulb_w = F.softmax(preds_gnn_ulb_w)
+                preds_gnn_max, preds_gnn_argmax = preds_gnn_ulb_w.max(dim=1)
+                mask_gnn = preds_gnn_max.gt(self.config['training']['loss_ulb_gnn_threshold'])
+                self.logger.info(f'preds_gnn_ulb_w > threshold: {mask_gnn.sum()/preds_gnn_ulb_w.shape[0] * 100:.2f}%')
+                mask_gnn = torch.cat((torch.ones(x_lb.shape[0]), mask_gnn))
+
+                x_gnn = torch.cat((preds_gnn_lb, preds_gnn_ulb_s))
+                y_gnn = torch.cat((y_lb, preds_gnn_argmax))
+
+                loss_gnn = gnn_loss_fn(x_gnn, y_gnn) * mask_gnn
+                loss_gnn = loss_gnn.mean()
+
+                loss += loss_gnn
+
             loss.backward()
             optimizer.step()
 
@@ -557,6 +586,7 @@ class Trainer():
             'loss_lb_temp': random.random(),
             'loss_ulb_weight': random.choice([1, 5, 10, 15, 20]),
             'loss_ulb_threshold': random.choice([0.7, 0.75, 0.8, 0.85, 0.9]),
+            'loss_ulb_gnn_threshold': random.choice([0.7, 0.75, 0.8, 0.85, 0.9]),
         }
         self.config['training'].update(train_config)
 
