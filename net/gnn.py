@@ -9,12 +9,25 @@ class GNNModel(nn.Module):
     def __init__(self, embed_dim, output_dim, num_proxies, device):
         super().__init__()
 
-        self.layers = nn.ModuleList([
-            MultiHeadDotProduct(embed_dim, nhead=2, aggr='add', dropout=0.0),
-            #geom_nn.GATConv(embed_dim, embed_dim, heads=2),
-            nn.ReLU(),
-            nn.Dropout(),                                 
-        ])
+        #self.layers = nn.ModuleList([
+        #    MultiHeadDotProduct(embed_dim, nhead=2, aggr='add', dropout=0.0),
+        #    #geom_nn.GATConv(embed_dim, embed_dim, heads=2),
+        #    nn.ReLU(),
+        #    nn.Dropout(),                                 
+        #])
+
+        self.att = MultiHeadDotProduct(embed_dim, nhead=2, aggr='add', dropout=0.0)
+
+        self.linear1 = nn.Linear(embed_dim, embed_dim)
+        self.linear2 = nn.Linear(embed_dim, embed_dim)
+        self.dropout_mlp = nn.Dropout(0.1)
+        self.act_mlp = nn.ReLU()
+
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
+        self.dropout1 = nn.Dropout(0.1)
+        self.dropout2 = nn.Dropout(0.1)
+
 
         self.fc = nn.Linear(embed_dim, output_dim)
 
@@ -25,20 +38,22 @@ class GNNModel(nn.Module):
 
     def forward(self, x):
         # nodes = proxies + x
-        x = torch.cat([self.proxies, x])
+        feats = torch.cat([self.proxies, x])
         # connect every sample with every proxy
-        edge_index = self.get_edge_index(x).to(self.device)
-        
-        for layer in self.layers:
-            if isinstance(layer, (geom_nn.MessagePassing, MultiHeadDotProduct)):
-                x = layer(x, edge_index)
-            else:
-                x = layer(x)
+        edge_index = self.get_edge_index(feats).to(self.device)
 
-        preds = self.fc(x)
+        feats2 = self.att(feats, edge_index)
+        feats2 = self.dropout1(feats2)
+        feats = self.norm1(feats + feats2)
+
+        feats2 = self.linear2(self.dropout_mlp(self.act_mlp(self.linear1(feats))))
+        feats2 = self.dropout2(feats2)
+        feats = self.norm2(feats + feats2)
+
+        preds = self.fc(feats)
 
         # do not return proxy predictions and features
-        return preds[self.num_proxies:], x[self.num_proxies:]
+        return preds[self.num_proxies:], feats[self.num_proxies:]
     
 
     def get_edge_index(self, nodes):
