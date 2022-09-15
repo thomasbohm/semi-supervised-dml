@@ -42,6 +42,11 @@ class Trainer():
             self.config['dataset']['labeled_fraction'] * 100,
             self.config['mode']
         )
+        self.filename_gnn = '{}_{}_{}_gnn.pth'.format(
+            self.config['dataset']['name'],
+            self.config['dataset']['labeled_fraction'] * 100,
+            self.config['mode']
+        )
         self.results_dir = f'./results/{config["dataset"]["name"]}/{date}/'
         if not osp.isdir(self.results_dir):
             os.makedirs(self.results_dir)
@@ -107,6 +112,9 @@ class Trainer():
             loss_fn_gnn = None
             if 'gnn' in self.config['model'].split('_'):
                 gnn = GNNModel(embed_size, num_classes, num_classes, self.device)
+                if self.config['gnn']['pretrained_path'] != 'no':
+                    gnn.load_state_dict(torch.load(self.config['gnn']['pretrained_path']))
+
                 gnn = gnn.to(self.device)
                 params = list(set(resnet.parameters())) + list(set(gnn.parameters()))
                 loss_fn_gnn = nn.CrossEntropyLoss(reduction='none')
@@ -177,10 +185,20 @@ class Trainer():
                         self.config['dataset']['name'],
                         self.config['dataset']['labeled_fraction'] * 100
                     )
+                    filename_gnn = '{}_{}_gnn_best.pth'.format(
+                        self.config['dataset']['name'],
+                        self.config['dataset']['labeled_fraction'] * 100
+                    )
                     os.rename(osp.join(self.results_dir, self.filename),
                               osp.join(self.results_dir, filename))
+                    if 'gnn' in self.config['model'].split('_'):
+                        os.rename(
+                            osp.join(self.results_dir, self.filename_gnn),
+                            osp.join(self.results_dir, filename_gnn)
+                        )
+
             else:
-                self.test_run(resnet, dl_ev)
+                self.test_run(resnet, dl_ev, gnn)
 
         if hyper_search:
             self.logger.info(f'Best Run: {best_run}')
@@ -254,6 +272,11 @@ class Trainer():
                         model.state_dict(),
                         osp.join(self.results_dir, self.filename)
                     )
+                    if 'gnn' in self.config['model'].split('_') and gnn_model:
+                        torch.save(
+                            gnn_model.state_dict(),
+                            osp.join(self.results_dir, self.filename_gnn)
+                        )
 
             self.evaluator.logger.info(f'Eval took {time.time() - eval_start:.0f}s')
             self.logger.info(f'Epoch took {time.time() - start:.0f}s')
@@ -455,7 +478,7 @@ class Trainer():
             loss.backward()
             optimizer.step()
 
-    def test_run(self, model: nn.Module, dl_ev: DataLoader):
+    def test_run(self, model: nn.Module, dl_ev: DataLoader, model_gnn=None):
         with torch.no_grad():
             recalls, nmi = self.evaluator.evaluate(
                 model,
@@ -463,6 +486,7 @@ class Trainer():
                 dataroot=self.config['dataset']['name'],
                 num_classes=self.config['dataset']['train_classes'],
                 tsne=True,
+                model_gnn=model_gnn,
                 plot_dir=self.results_dir
             )
             return recalls, nmi

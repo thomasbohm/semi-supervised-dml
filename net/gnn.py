@@ -16,10 +16,10 @@ class GNNModel(nn.Module):
         #    nn.Dropout(),                                 
         #])
 
-        self.att = MultiHeadDotProduct(embed_dim, nhead=2, aggr='add', dropout=0.0)
+        self.att = MultiHeadDotProduct(embed_dim, nhead=2, aggr='add', dropout=0.1)
 
-        self.linear1 = nn.Linear(embed_dim, embed_dim)
-        self.linear2 = nn.Linear(embed_dim, embed_dim)
+        self.linear1 = nn.Linear(embed_dim, 4*embed_dim)
+        self.linear2 = nn.Linear(4*embed_dim, embed_dim)
         self.dropout_mlp = nn.Dropout(0.1)
         self.act_mlp = nn.ReLU()
 
@@ -27,7 +27,6 @@ class GNNModel(nn.Module):
         self.norm2 = nn.LayerNorm(embed_dim)
         self.dropout1 = nn.Dropout(0.1)
         self.dropout2 = nn.Dropout(0.1)
-
 
         self.fc = nn.Linear(embed_dim, output_dim)
 

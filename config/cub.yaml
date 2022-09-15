@@ -7,6 +7,9 @@ resnet:
   reduction: 4
   bottleneck: False
 
+gnn:
+  pretrained_path: "no"
+
 dataset:
   path: "data/CUB"
   name: "CUB"
