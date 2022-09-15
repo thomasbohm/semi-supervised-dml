@@ -16,7 +16,7 @@ class GNNModel(nn.Module):
         #    nn.Dropout(),                                 
         #])
 
-        self.att = MultiHeadDotProduct(embed_dim, nhead=2, aggr='add', dropout=0.1)
+        self.att = geom_nn.GATConv(embed_dim, embed_dim//2, heads=2) #MultiHeadDotProduct(embed_dim, nhead=2, aggr='add', dropout=0.1)
 
         self.linear1 = nn.Linear(embed_dim, 4*embed_dim)
         self.linear2 = nn.Linear(4*embed_dim, embed_dim)

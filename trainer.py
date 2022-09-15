@@ -464,7 +464,7 @@ class Trainer():
                 preds_gnn_ulb_w = F.softmax(preds_gnn_ulb_w)
                 preds_gnn_max, preds_gnn_argmax = preds_gnn_ulb_w.max(dim=1)
                 mask_gnn = preds_gnn_max.gt(self.config['training']['loss_ulb_gnn_threshold'])
-                self.logger.info(f'preds_gnn_ulb_w > threshold: {mask_gnn.sum()/preds_gnn_ulb_w.shape[0] * 100:.2f}%')
+                #self.logger.info(f'preds_gnn_ulb_w > threshold: {mask_gnn.sum()/preds_gnn_ulb_w.shape[0] * 100:.2f}%')
                 mask_gnn = torch.cat((torch.ones(x_lb.shape[0], device=self.device), mask_gnn))
 
                 x_gnn = torch.cat((preds_gnn_lb, preds_gnn_ulb_s))
