@@ -6,17 +6,11 @@ from net.attention import MultiHeadDotProduct
 
 
 class GNNModel(nn.Module):
-    def __init__(self, embed_dim, output_dim, num_proxies, device):
+    def __init__(self, embed_dim, output_dim, num_proxies, num_heads, device):
         super().__init__()
 
-        #self.layers = nn.ModuleList([
-        #    MultiHeadDotProduct(embed_dim, nhead=2, aggr='add', dropout=0.0),
-        #    #geom_nn.GATConv(embed_dim, embed_dim, heads=2),
-        #    nn.ReLU(),
-        #    nn.Dropout(),                                 
-        #])
-
-        self.att = geom_nn.GATConv(embed_dim, embed_dim//2, heads=2) #MultiHeadDotProduct(embed_dim, nhead=2, aggr='add', dropout=0.1)
+        self.att = geom_nn.GATConv(embed_dim, embed_dim//num_heads, heads=num_heads) 
+        #self.att = MultiHeadDotProduct(embed_dim, nhead=num_heads, aggr='add', dropout=0.1)
 
         self.linear1 = nn.Linear(embed_dim, 4*embed_dim)
         self.linear2 = nn.Linear(4*embed_dim, embed_dim)

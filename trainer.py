@@ -111,7 +111,13 @@ class Trainer():
             gnn = None
             loss_fn_gnn = None
             if 'gnn' in self.config['model'].split('_'):
-                gnn = GNNModel(embed_size, num_classes, num_classes, self.device)
+                gnn = GNNModel(
+                    embed_size,
+                    num_classes,
+                    self.config['gnn']['num_proxies'],
+                    self.config['gnn']['num_heads'],
+                    self.device
+                )
                 if self.config['gnn']['pretrained_path'] != 'no':
                     gnn.load_state_dict(torch.load(self.config['gnn']['pretrained_path']))
 
@@ -608,9 +614,9 @@ class Trainer():
             'num_classes_iter': num_classes_iter,
             'num_elements_class': num_elements_class,
             'loss_lb_temp': random.random(),
-            'loss_ulb_weight': random.choice([1, 5, 10, 15, 20]),
-            'loss_ulb_threshold': random.choice([0.7, 0.75, 0.8, 0.85, 0.9]),
-            'loss_ulb_gnn_threshold': random.choice([0.7, 0.75, 0.8, 0.85, 0.9]),
+            'loss_ulb_weight': random.choice([1, 2, 5, 10]),
+            'loss_ulb_threshold': random.choice([0.8, 0.85, 0.9]),
+            'loss_ulb_gnn_threshold': random.choice([0.8, 0.85, 0.9]),
         }
         self.config['training'].update(train_config)
 
@@ -619,6 +625,16 @@ class Trainer():
             'randaugment_magnitude': random.randint(5, 15),
         }
         self.config['dataset'].update(dataset_config)
+
+        gnn_config = {
+            'num_proxies': random.choice([
+                self.config['dataset']['train_classes'],
+                2 * self.config['dataset']['train_classes'],
+                self.config['dataset']['train_classes'] // 2
+            ]),
+            'num_heads': random.choice([1, 2, 4]),
+        }
+        self.config['gnn'].update(gnn_config)
 
     def reduce_lr(self, model: nn.Module, optimizer: Optimizer):
         self.logger.info('Reducing learning rate:')
