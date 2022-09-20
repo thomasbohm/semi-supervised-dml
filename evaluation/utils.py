@@ -79,7 +79,9 @@ class Evaluator():
                     targets.append(y)
 
                     if model_gnn:
+                        torch.use_deterministic_algorithms(False)
                         preds, feats = model_gnn(fc7)
+                        torch.use_deterministic_algorithms(True)
                         feats_gnn.append(feats.cpu())
 
                 except TypeError:
