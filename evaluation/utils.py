@@ -3,7 +3,7 @@ from typing import List, Tuple
 import torch
 import logging
 import matplotlib.pyplot as plt
-
+import numpy as np
 from sklearn.manifold import TSNE
 
 from .normalized_mutual_information import calc_normalized_mutual_information, cluster_by_kmeans
@@ -37,7 +37,8 @@ class Evaluator():
 
         if tsne:
             self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_final.png'))
-        if model_gnn:
+        
+        if model_gnn and feats_gnn:
             self.create_tsne_plot_gnn(
                 torch.cat([model_gnn.proxies.cpu(), feats_gnn]),
                 torch.cat([torch.arange(model_gnn.num_proxies, 2 * model_gnn.num_proxies, 1), targets]),
@@ -50,6 +51,13 @@ class Evaluator():
                 model_gnn.proxies.cpu(),
                 num_classes,
                 osp.join(plot_dir, 'dist_gnn.png')
+            )
+            np.savez(osp.join(
+                plot_dir, 'data_gnn.npz'),
+                feats_resnet=feats.cpu().detach().numpy(),
+                feats_gnn=feats_gnn.cpu().detach().numpy(),
+                targets=targets.cpu().detach().numpy(),
+                proxies=model_gnn.proxies.cpu().detach().numpy()
             )
 
         recalls: List[float] = []
