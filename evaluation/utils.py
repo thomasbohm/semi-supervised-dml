@@ -49,7 +49,7 @@ class Evaluator():
                 targets,
                 model_gnn.proxies.cpu(),
                 num_classes,
-                'dist_gnn.png'
+                osp.join(plot_dir, 'dist_gnn.png')
             )
 
         recalls: List[float] = []
