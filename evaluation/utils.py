@@ -38,7 +38,7 @@ class Evaluator():
         if tsne:
             self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_final.png'))
         
-        if model_gnn and feats_gnn:
+        if model_gnn and feats_gnn is not None:
             self.create_tsne_plot_gnn(
                 torch.cat([model_gnn.proxies.cpu(), feats_gnn]),
                 torch.cat([torch.arange(model_gnn.num_proxies, 2 * model_gnn.num_proxies, 1), targets]),
