@@ -35,13 +35,13 @@ class GNNModel(nn.Module):
         # connect every sample with every proxy
         edge_index = self.get_edge_index(feats).to(self.device)
 
-        feats2 = self.att(feats, edge_index)
-        feats2 = self.dropout1(feats2)
-        feats = self.norm1(feats + feats2)
+        feats = self.att(feats, edge_index)
+        feats = self.dropout1(feats)
+        #feats = self.norm1(feats + feats2)
 
-        feats2 = self.linear2(self.dropout_mlp(self.act_mlp(self.linear1(feats))))
-        feats2 = self.dropout2(feats2)
-        feats = self.norm2(feats + feats2)
+        #feats2 = self.linear2(self.dropout_mlp(self.act_mlp(self.linear1(feats))))
+        #feats2 = self.dropout2(feats2)
+        #feats = self.norm2(feats + feats2)
 
         preds = self.fc(feats)
 

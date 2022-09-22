@@ -28,6 +28,7 @@ class Evaluator():
         model_is_training = model.training
         model.eval()
 
+        feats_gnn = None
         if not model_gnn:
             feats, targets = self.predict_batchwise(model, dataloader)
         else:
@@ -42,6 +43,13 @@ class Evaluator():
                 torch.cat([torch.arange(model_gnn.num_proxies, 2 * model_gnn.num_proxies, 1), targets]),
                 osp.join(plot_dir, 'tsne_gnn.png'),
                 num_proxies=model_gnn.num_proxies
+            )
+            self.create_distance_plot_gnn(
+                feats_gnn,
+                targets,
+                model_gnn.proxies,
+                num_classes,
+                'dist_gnn.png'
             )
 
         recalls: List[float] = []
@@ -121,6 +129,7 @@ class Evaluator():
             fig, ax = plt.subplots()
             ax.scatter(*feats_tsne.T, c=self.get_colors(targets).tolist(), s=10, alpha=0.6)
             
+            fig.set_size_inches(11.69,8.27)
             fig.savefig(path)
             self.logger.info(f'Saved plot to {path}')
     
@@ -135,3 +144,33 @@ class Evaluator():
             fig.set_size_inches(11.69,8.27)
             fig.savefig(path)
             self.logger.info(f'Saved plot to {path}')
+    
+    def create_distance_plot_gnn(self, feats, targets, proxies, num_classes, path):
+        data = self.get_proxies_to_class_avg(feats, proxies, targets, num_classes)
+
+        fig, ax = plt.subplots()
+        im = ax.imshow(data)
+
+        ax.set_xlabel('Classes')
+        ax.set_ylabel('Proxies')
+        cbar = ax.figure.colorbar(im, ax=ax)
+        fig.set_size_inches(11.69,8.27)
+        fig.savefig(path)
+
+    def get_proxies_to_class_avg(self, feats, proxies, targets, num_classes):
+        proxy_to_class_distances = [[[] for c in range(num_classes)] for p in range(proxies.shape[0])]
+
+        for p in range(proxies.shape[0]):
+            proxy = proxies[p]
+            for c in range(num_classes):
+                samples = feats[targets == (c + num_classes)]
+                for s in range(samples.shape[0]):
+                    d = torch.linalg.norm(proxy - samples[s])
+                    proxy_to_class_distances[p][c].append(d)
+
+        proxies_to_avg = torch.zeros((proxies.shape[0], num_classes))
+        for p in range(proxies.shape[0]):
+            for c in range(num_classes):
+                proxies_to_avg[p, c] = torch.tensor(proxy_to_class_distances[p][c]).mean().item()
+
+        return proxies_to_avg
