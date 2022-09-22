@@ -47,7 +47,7 @@ class Evaluator():
             self.create_distance_plot_gnn(
                 feats_gnn,
                 targets,
-                model_gnn.proxies,
+                model_gnn.proxies.cpu(),
                 num_classes,
                 'dist_gnn.png'
             )
