@@ -122,6 +122,7 @@ class Trainer():
                     gnn.load_state_dict(torch.load(self.config['gnn']['pretrained_path']))
 
                 gnn = gnn.to(self.device)
+                self.logger.info(gnn)
                 params = list(set(resnet.parameters())) + list(set(gnn.parameters()))
                 loss_fn_gnn = nn.CrossEntropyLoss(reduction='none')
 
