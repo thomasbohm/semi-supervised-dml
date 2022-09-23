@@ -9,3 +9,4 @@ dml_env/
 playground.ipynb
 __pycache__/
 .vscode/
+*.npz
