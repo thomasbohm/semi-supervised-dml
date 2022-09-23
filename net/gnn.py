@@ -9,20 +9,22 @@ class GNNModel(nn.Module):
     def __init__(self, embed_dim, output_dim, num_proxies, num_heads, device):
         super().__init__()
 
-        self.att = geom_nn.GATConv(embed_dim, embed_dim//num_heads, heads=num_heads) 
+        self.att = geom_nn.GATConv(embed_dim, embed_dim, heads=num_heads) 
         #self.att = MultiHeadDotProduct(embed_dim, nhead=num_heads, aggr='add', dropout=0.1)
 
-        self.linear1 = nn.Linear(embed_dim, 4*embed_dim)
-        self.linear2 = nn.Linear(4*embed_dim, embed_dim)
-        self.dropout_mlp = nn.Dropout(0.1)
-        self.act_mlp = nn.ReLU()
+        self.act = nn.ReLU()
 
-        self.norm1 = nn.LayerNorm(embed_dim)
-        self.norm2 = nn.LayerNorm(embed_dim)
+        #self.linear1 = nn.Linear(embed_dim, 4*embed_dim)
+        #self.linear2 = nn.Linear(4*embed_dim, embed_dim)
+        #self.dropout_mlp = nn.Dropout(0.1)
+        #self.act_mlp = nn.ReLU()
+
+        #self.norm1 = nn.LayerNorm(embed_dim)
+        #self.norm2 = nn.LayerNorm(embed_dim)
         self.dropout1 = nn.Dropout(0.1)
-        self.dropout2 = nn.Dropout(0.1)
+        #self.dropout2 = nn.Dropout(0.1)
 
-        self.fc = nn.Linear(embed_dim, output_dim)
+        self.fc = nn.Linear(num_heads * embed_dim, output_dim)
 
         self.proxies = nn.parameter.Parameter(torch.randn((num_proxies, embed_dim))).to(device)
         self.num_proxies = num_proxies
@@ -37,6 +39,8 @@ class GNNModel(nn.Module):
 
         feats = self.att(feats, edge_index)
         feats = self.dropout1(feats)
+        feats = self.act(feats)
+        
         #feats = self.norm1(feats + feats2)
 
         #feats2 = self.linear2(self.dropout_mlp(self.act_mlp(self.linear1(feats))))
