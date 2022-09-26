@@ -203,9 +203,12 @@ class Trainer():
                             osp.join(self.results_dir, self.filename_gnn),
                             osp.join(self.results_dir, filename_gnn)
                         )
+                    if gnn and self.config['mode'] == 'train':
+                        resnet.load_state_dict(torch.load(osp.join(self.results_dir, filename)))
+                        gnn.load_state_dict(torch.load(osp.join(self.results_dir, filename_gnn)))
 
-            else:
-                self.test_run(resnet, dl_ev, gnn)
+            if self.config != 'hyper':
+                self.test_run(resnet, dl_ev, osp.join(self.results_dir, 'best'), gnn)
 
         if hyper_search:
             self.logger.info(f'Best Run: {best_run}')
@@ -485,7 +488,7 @@ class Trainer():
             loss.backward()
             optimizer.step()
 
-    def test_run(self, model: nn.Module, dl_ev: DataLoader, model_gnn=None):
+    def test_run(self, model: nn.Module, dl_ev: DataLoader, plots_dir, model_gnn=None):
         with torch.no_grad():
             recalls, nmi = self.evaluator.evaluate(
                 model,
@@ -494,7 +497,7 @@ class Trainer():
                 num_classes=self.config['dataset']['train_classes'],
                 tsne=True,
                 model_gnn=model_gnn,
-                plot_dir=self.results_dir
+                plot_dir=plots_dir
             )
             return recalls, nmi
 
