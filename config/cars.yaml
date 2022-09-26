@@ -13,6 +13,7 @@ gnn:
   num_heads: 1
   num_proxies: 98
   add_mlp: False
+  gnn_conv: "GAT"
 
 dataset:
   path: "data/CARS"

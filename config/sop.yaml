@@ -13,6 +13,7 @@ gnn:
   num_heads: 1
   num_proxies: 11318
   add_mlp: False
+  gnn_conv: "GAT"
 
 dataset:
   path: "data/Stanford_Online_Products"

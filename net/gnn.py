@@ -16,13 +16,21 @@ class GNNModel(nn.Module):
 
         in_channels = embed_dim
         layers = []
-        for _ in range(kwargs['num_layers']):
-            layers += [
-                geom_nn.GATConv(in_channels=in_channels, out_channels=embed_dim, heads=num_heads),
-                nn.ReLU(),
-                nn.Dropout(0.1)
-            ]
-            in_channels = num_heads * embed_dim
+        if kwargs['gnn_conv'] == 'GAT':
+            for _ in range(kwargs['num_layers']):
+                layers += [
+                    geom_nn.GATConv(in_channels=in_channels, out_channels=embed_dim, heads=num_heads),
+                    nn.ReLU(),
+                    nn.Dropout(0.1)
+                ]
+                in_channels = num_heads * embed_dim
+        else:
+            for _ in range(kwargs['num_layers']):
+                layers += [
+                    MultiHeadDotProduct(embed_dim, num_heads, aggr='add', dropout=0.1),
+                    nn.ReLU(),
+                    nn.Dropout(0.1)
+                ]
 
         if kwargs['add_mlp']:
             layers += [
