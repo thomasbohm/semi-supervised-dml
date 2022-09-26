@@ -61,7 +61,7 @@ class GNNModel(nn.Module):
         edge_index = self.get_edge_index(feats).to(self.device)
 
         for l in self.layers:
-            if isinstance(l, geom_nn.MessagePassing):
+            if isinstance(l, (geom_nn.MessagePassing, MultiHeadDotProduct)):
                 feats = l(feats, edge_index)
             else:
                 feats = l(feats)
