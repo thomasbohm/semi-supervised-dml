@@ -23,7 +23,7 @@ def load_resnet50(num_classes, pretrained_path='no', reduction=4, last_stride=0,
     else:
         model.fc = nn.Linear(embed_dim, num_classes)
 
-    if pretrained_path != 'no':
+    if pretrained_path not in ['', 'no']:
         if not torch.cuda.is_available():
             model.load_state_dict(torch.load(
                 pretrained_path, map_location=torch.device('cpu')))

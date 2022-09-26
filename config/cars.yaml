@@ -9,8 +9,10 @@ resnet:
 
 gnn:
   pretrained_path: "no"
+  num_layers: 1
+  num_heads: 1
   num_proxies: 98
-  num_heads: 2
+  add_mlp: False
 
 dataset:
   path: "data/CARS"

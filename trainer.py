@@ -74,7 +74,7 @@ class Trainer():
 
             # ResNet
             num_classes = self.config['dataset']['train_classes']
-            resnet, embed_size = load_resnet50(
+            resnet, embed_dim = load_resnet50(
                 num_classes=num_classes,
                 pretrained_path=self.config['resnet']['pretrained_path'],
                 reduction=self.config['resnet']['reduction'],
@@ -84,16 +84,16 @@ class Trainer():
                 self.logger.info(f'Using {torch.cuda.device_count()} GPUs')
                 resnet = nn.parallel.DataParallel(resnet)
             resnet = resnet.to(self.device)
-            self.logger.info(f'Loaded resnet50 with embedding dim {embed_size}.')
+            self.logger.info(f'Loaded resnet50 with embedding dim {embed_dim}.')
 
             # Projection Head
             head_ulb = None
             if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head', 'kl_head', 'simclr']:
                 if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head', 'simclr']:
                     head_ulb = nn.Sequential(
-                        nn.Linear(embed_size, 2 * embed_size),
+                        nn.Linear(embed_dim, 2 * embed_dim),
                         nn.ReLU(),
-                        nn.Linear(2 * embed_size, embed_size)
+                        nn.Linear(2 * embed_dim, embed_dim)
                     )
                 else:
                     head_ulb = nn.Sequential(
@@ -112,16 +112,18 @@ class Trainer():
             loss_fn_gnn = None
             if 'gnn' in self.config['model'].split('_'):
                 gnn = GNNModel(
-                    embed_size,
-                    num_classes,
-                    self.config['gnn']['num_proxies'],
-                    self.config['gnn']['num_heads'],
-                    self.device
-                )
-                if self.config['gnn']['pretrained_path'] != 'no':
+                    self.device,
+                    embed_dim = embed_dim,
+                    output_dim = num_classes,
+                    num_layers = self.config['gnn']['num_layers'],
+                    num_heads = self.config['gnn']['num_heads'],
+                    num_proxies = self.config['gnn']['num_proxies'],
+                    add_mlp = self.config['gnn']['add_mlp']
+                ).to(self.device)
+
+                if self.config['gnn']['pretrained_path'] not in ['', 'no']:
                     gnn.load_state_dict(torch.load(self.config['gnn']['pretrained_path']))
 
-                gnn = gnn.to(self.device)
                 self.logger.info(gnn)
                 params = list(set(resnet.parameters())) + list(set(gnn.parameters()))
                 loss_fn_gnn = nn.CrossEntropyLoss(reduction='none')
@@ -208,7 +210,9 @@ class Trainer():
                         gnn.load_state_dict(torch.load(osp.join(self.results_dir, filename_gnn)))
 
             if self.config != 'hyper':
-                self.test_run(resnet, dl_ev, osp.join(self.results_dir, 'best'), gnn)
+                plots_dir = osp.join(self.results_dir, 'plots')
+                os.mkdir(plots_dir)
+                self.test_run(resnet, dl_ev, plots_dir, gnn)
 
         if hyper_search:
             self.logger.info(f'Best Run: {best_run}')
