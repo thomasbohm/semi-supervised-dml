@@ -9,7 +9,8 @@ class GNNModel(nn.Module):
     def __init__(self, embed_dim, output_dim, num_proxies, num_heads, device):
         super().__init__()
 
-        self.attention = geom_nn.GATConv(embed_dim, embed_dim, heads=num_heads) 
+        self.attention = geom_nn.GATConv(embed_dim, embed_dim, heads=num_heads)
+        self.attention2 = geom_nn.GATConv(num_heads * embed_dim, embed_dim, heads=num_heads)  
         #self.attention = MultiHeadDotProduct(embed_dim, nhead=num_heads, aggr='add', dropout=0.1)
 
         #self.linear1 = nn.Linear(embed_dim, 4*embed_dim)
@@ -20,7 +21,7 @@ class GNNModel(nn.Module):
         #self.norm1 = nn.LayerNorm(embed_dim)
         #self.norm2 = nn.LayerNorm(embed_dim)
         self.dropout1 = nn.Dropout(0.1)
-        #self.dropout2 = nn.Dropout(0.1)
+        self.dropout2 = nn.Dropout(0.1)
 
         self.activation = nn.ReLU()
         self.fc = nn.Linear(num_heads * embed_dim, output_dim)
@@ -39,6 +40,10 @@ class GNNModel(nn.Module):
         feats = self.attention(feats, edge_index)
         feats = self.activation(feats)
         feats = self.dropout1(feats)
+
+        feats = self.attention2(feats, edge_index)
+        feats = self.activation(feats)
+        feats = self.dropout2(feats)
 
         #feats = self.norm1(feats + feats2)
         #feats2 = self.linear2(self.dropout_mlp(self.act_mlp(self.linear1(feats))))
