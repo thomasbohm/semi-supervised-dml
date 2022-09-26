@@ -14,28 +14,28 @@ class GNNModel(nn.Module):
         num_heads = kwargs['num_heads']
         num_proxies = kwargs['num_proxies']
 
-        in_channels, out_channels = embed_dim, num_heads * embed_dim
+        in_channels = embed_dim
         layers = []
         for _ in range(kwargs['num_layers']):
             layers += [
-                geom_nn.GATConv(in_channels=in_channels, out_channels=out_channels, heads=num_heads),
+                geom_nn.GATConv(in_channels=in_channels, out_channels=embed_dim, heads=num_heads),
                 nn.ReLU(),
                 nn.Dropout(0.1)
             ]
-            in_channels, out_channels = out_channels, num_heads * out_channels
+            in_channels = num_heads * embed_dim
 
         if kwargs['add_mlp']:
             layers += [
-                nn.Linear(out_channels, 4 * embed_dim),
+                nn.Linear(in_channels, 4 * embed_dim),
                 nn.ReLU(),
                 nn.Dropout(0.1),
                 nn.Linear(4 * embed_dim, embed_dim),
                 nn.ReLU(),
                 nn.Dropout(0.1)
             ]
-        else:
+        elif in_channels != embed_dim:
             layers += [
-                nn.Linear(out_channels, embed_dim)
+                nn.Linear(in_channels, embed_dim)
             ]
 
         self.layers = nn.ModuleList(layers)
