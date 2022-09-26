@@ -54,7 +54,7 @@ class GNNModel(nn.Module):
         self.device = device
 
 
-    def forward(self, x):
+    def forward(self, x, return_proxies=False):
         # nodes = proxies + x
         feats = torch.cat([self.proxies, x])
         # connect every sample with every proxy
@@ -68,8 +68,11 @@ class GNNModel(nn.Module):
 
         preds = self.fc(feats)
 
-        # do not return proxy predictions and features
-        return preds[self.num_proxies:], feats[self.num_proxies:]
+        if not return_proxies:
+            # do not return proxy predictions and features
+            return preds[self.num_proxies:], feats[self.num_proxies:]
+        else:
+            return preds[self.num_proxies:], feats[self.num_proxies:], preds[:self.num_proxies], feats[:self.num_proxies]
     
 
     def get_edge_index(self, nodes):
