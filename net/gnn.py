@@ -16,7 +16,7 @@ class GNNModel(nn.Module):
 
         in_channels, out_channels = embed_dim, num_heads * embed_dim
         layers = []
-        for _ in range(kwargs['num_layers'] - 1):
+        for _ in range(kwargs['num_layers']):
             layers += [
                 geom_nn.GATConv(in_channels=in_channels, out_channels=out_channels, heads=num_heads),
                 nn.ReLU(),
