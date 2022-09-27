@@ -201,7 +201,7 @@ class Trainer():
                     )
                     os.rename(osp.join(self.results_dir, self.filename),
                               osp.join(self.results_dir, filename))
-                    if 'gnn' in self.config['model'].split('_'):
+                    if gnn:
                         os.rename(
                             osp.join(self.results_dir, self.filename_gnn),
                             osp.join(self.results_dir, filename_gnn)
@@ -463,12 +463,12 @@ class Trainer():
                 return
 
             loss_ulb *= self.config['training']['loss_ulb_weight']
-            self.logger.info(f'ResNet labeled loss: {loss_lb:.2f}')
-            self.logger.info(f'ResNet unlabeled loss (weighted): {loss_lb:.2f}')
+            if first_batch:
+                self.logger.info(f'ResNet lb: {loss_lb:.2f}')
+                self.logger.info(f'ResNet ulb: {loss_lb:.2f}')
             loss = loss_lb + loss_ulb
 
-            if 'gnn' in self.config['model'].split('_'):
-                assert gnn_model and gnn_loss_fn
+            if gnn_model and gnn_loss_fn:
                 torch.use_deterministic_algorithms(False)
                 preds_gnn, embeddings_gnn, preds_proxies, embeds_proxies = gnn_model(embeddings, return_proxies=True)
                 torch.use_deterministic_algorithms(True)
@@ -491,8 +491,10 @@ class Trainer():
                 loss += loss_gnn
 
                 loss_proxies = F.cross_entropy(preds_proxies, torch.arange(preds_proxies.shape[0], device=self.device))
-                self.logger.info(f'GNN loss: {loss_gnn:.2f}')
-                self.logger.info(f'GNN proxy loss: {loss_proxies:.2f}')
+                if first_batch:
+                    self.logger.info(f'GNN: {loss_gnn:.2f}')
+                    self.logger.info(f'GNN proxy: {loss_proxies:.2f}')
+                    self.logger.info(f'Total loss: {loss:.2f}')
                 loss += loss_proxies
 
             loss.backward()
