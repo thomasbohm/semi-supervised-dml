@@ -338,7 +338,6 @@ class Trainer():
                 loss += loss_gnn
 
             if plot_tsne and epoch % 10 == 0 and first_batch:
-                first_batch = False
                 path = osp.join(self.results_dir, f'tsne_train_lb_{epoch}.png')
                 self.evaluator.create_tsne_plot(embeddings, y, path)
                 # self.logger.info(f'Counter(y_lb): {Counter(y.tolist()).most_common()}')
@@ -350,6 +349,7 @@ class Trainer():
             # self.logger.info('loss_lb: {}'.format(loss))
             loss.backward()
             optimizer.step()
+            first_batch = False
 
     def train_epoch_with_ulb(
         self,
@@ -396,7 +396,6 @@ class Trainer():
                     embeddings_ulb_w = embeddings_ulb[:x_ulb_w.shape[0]]
                     embeddings_ulb_s = embeddings_ulb[x_ulb_w.shape[0]:]
                 if plot_tsne and epoch % 10 == 0 and first_batch:
-                    first_batch = False
                     self.evaluator.create_tsne_plot(
                         embeddings_ulb_w,
                         y_ulb,
@@ -424,7 +423,6 @@ class Trainer():
                     return
 
                 if plot_tsne and epoch % 10 == 0 and first_batch:
-                    first_batch = False
                     self.evaluator.create_tsne_plot(
                         preds_ulb_w,
                         y_ulb,
@@ -465,7 +463,7 @@ class Trainer():
             loss_ulb *= self.config['training']['loss_ulb_weight']
             if first_batch:
                 self.logger.info(f'ResNet lb: {loss_lb:.2f}')
-                self.logger.info(f'ResNet ulb: {loss_lb:.2f}')
+                self.logger.info(f'ResNet ulb: {loss_ulb:.2f}')
             loss = loss_lb + loss_ulb
 
             if gnn_model and gnn_loss_fn:
@@ -491,14 +489,15 @@ class Trainer():
                 loss += loss_gnn
 
                 loss_proxies = F.cross_entropy(preds_proxies, torch.arange(preds_proxies.shape[0], device=self.device))
+                loss += loss_proxies
                 if first_batch:
                     self.logger.info(f'GNN: {loss_gnn:.2f}')
                     self.logger.info(f'GNN proxy: {loss_proxies:.2f}')
                     self.logger.info(f'Total loss: {loss:.2f}')
-                loss += loss_proxies
 
             loss.backward()
             optimizer.step()
+            first_batch = False
 
     def test_run(self, model: nn.Module, dl_ev: DataLoader, plots_dir, model_gnn=None):
         with torch.no_grad():
