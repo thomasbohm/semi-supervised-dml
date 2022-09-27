@@ -461,9 +461,6 @@ class Trainer():
                 return
 
             loss_ulb *= self.config['training']['loss_ulb_weight']
-            if first_batch:
-                self.logger.info(f'ResNet lb: {loss_lb:.2f}')
-                self.logger.info(f'ResNet ulb: {loss_ulb:.2f}')
             loss = loss_lb + loss_ulb
 
             if gnn_model and gnn_loss_fn:
@@ -491,8 +488,10 @@ class Trainer():
                 loss_proxies = F.cross_entropy(preds_proxies, torch.arange(preds_proxies.shape[0], device=self.device))
                 loss += loss_proxies
                 if first_batch:
-                    self.logger.info(f'GNN: {loss_gnn:.2f}')
-                    self.logger.info(f'GNN proxy: {loss_proxies:.2f}')
+                    self.logger.info(f'ResNet lb : {loss_lb:.2f}')
+                    self.logger.info(f'ResNet ulb: {loss_ulb:.2f}')
+                    self.logger.info(f'GNN       : {loss_gnn:.2f}')
+                    self.logger.info(f'GNN proxy : {loss_proxies:.2f}')
                     self.logger.info(f'Total loss: {loss:.2f}')
 
             loss.backward()
