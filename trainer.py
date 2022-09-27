@@ -463,13 +463,14 @@ class Trainer():
                 return
 
             loss_ulb *= self.config['training']['loss_ulb_weight']
-            # self.logger.info(f'loss_lb: {loss_lb:.2f}, loss_ulb: {loss_ulb:.2f}')
+            self.logger.info(f'ResNet labeled loss: {loss_lb:.2f}')
+            self.logger.info(f'ResNet unlabeled loss (weighted): {loss_lb:.2f}')
             loss = loss_lb + loss_ulb
 
             if 'gnn' in self.config['model'].split('_'):
                 assert gnn_model and gnn_loss_fn
                 torch.use_deterministic_algorithms(False)
-                preds_gnn, embeddings_gnn = gnn_model(embeddings)
+                preds_gnn, embeddings_gnn, preds_proxies, embeds_proxies = gnn_model(embeddings, return_proxies=True)
                 torch.use_deterministic_algorithms(True)
 
                 preds_gnn_lb = preds_gnn[:x_lb.shape[0]]
@@ -487,8 +488,12 @@ class Trainer():
 
                 loss_gnn = gnn_loss_fn(x_gnn, y_gnn) * mask_gnn
                 loss_gnn = loss_gnn.mean()
-
                 loss += loss_gnn
+
+                loss_proxies = F.cross_entropy(preds_proxies, torch.arange(preds_proxies.shape[0], device=self.device))
+                self.logger.info(f'GNN loss: {loss_gnn:.2f}')
+                self.logger.info(f'GNN proxy loss: {loss_proxies:.2f}')
+                loss += loss_proxies
 
             loss.backward()
             optimizer.step()
