@@ -14,6 +14,7 @@ gnn:
   num_proxies: 100
   add_mlp: False
   gnn_conv: "GAT"
+  gnn_fc: False
 
 dataset:
   path: "data/CUB"
@@ -41,4 +42,5 @@ training:
   loss_ulb_temp: 0.11
   loss_ulb_threshold: 0.8
   loss_ulb_gnn_threshold: 0.9
+  loss_proxy: False
   ulb_batch_size_factor: 7

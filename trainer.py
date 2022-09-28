@@ -485,8 +485,11 @@ class Trainer():
                 loss_gnn = loss_gnn.mean()
                 loss += loss_gnn
 
-                loss_proxies = F.cross_entropy(preds_proxies, torch.arange(preds_proxies.shape[0], device=self.device))
-                loss += loss_proxies
+                loss_proxies = 0.0
+                if self.config['training']['proxy_loss']:
+                    classes = y_gnn.unique()
+                    loss_proxies = F.cross_entropy(preds_proxies[classes], classes)
+                    loss += loss_proxies
                 if first_batch:
                     self.logger.info(f'ResNet lb : {loss_lb:.2f}')
                     self.logger.info(f'ResNet ulb: {loss_ulb:.2f}')

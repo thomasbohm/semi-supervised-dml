@@ -47,7 +47,10 @@ class GNNModel(nn.Module):
             ]
 
         self.layers = nn.ModuleList(layers)
-        self.fc = nn.Linear(embed_dim, output_dim)
+        if kwargs['gnn_fc']:
+            self.fc = geom_nn.GATConv(embed_dim, output_dim, heads=num_heads, concat=False),
+        else:
+            self.fc = nn.Linear(embed_dim, output_dim)
 
         self.proxies = nn.parameter.Parameter(torch.randn((num_proxies, embed_dim))).to(device)
         self.num_proxies = num_proxies
