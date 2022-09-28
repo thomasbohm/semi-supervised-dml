@@ -487,7 +487,7 @@ class Trainer():
                 loss += loss_gnn
 
                 loss_proxies = 0.0
-                if self.config['training']['proxy_loss']:
+                if self.config['training']['loss_proxy']:
                     classes = y_gnn.unique()
                     loss_proxies = F.cross_entropy(preds_proxies[classes], classes)
                     loss += loss_proxies
