@@ -48,7 +48,7 @@ class GNNModel(nn.Module):
 
         self.layers = nn.ModuleList(layers)
         if kwargs['gnn_fc']:
-            self.fc = geom_nn.GATConv(embed_dim, output_dim, heads=num_heads, concat=False),
+            self.fc = geom_nn.GATConv(embed_dim, output_dim, heads=num_heads, concat=False)
         else:
             self.fc = nn.Linear(embed_dim, output_dim)
 
