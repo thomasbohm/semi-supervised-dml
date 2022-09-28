@@ -635,6 +635,7 @@ class Trainer():
             'loss_ulb_weight': random.choice([1, 2, 5, 10]),
             'loss_ulb_threshold': random.choice([0.8, 0.85, 0.9]),
             'loss_ulb_gnn_threshold': random.choice([0.8, 0.85, 0.9]),
+            'loss_proxy': random.choice([True, False])
         }
         self.config['training'].update(train_config)
 
@@ -645,12 +646,16 @@ class Trainer():
         self.config['dataset'].update(dataset_config)
 
         gnn_config = {
-            'num_proxies': random.choice([
-                self.config['dataset']['train_classes'],
-                2 * self.config['dataset']['train_classes'],
-                self.config['dataset']['train_classes'] // 2
-            ]),
+            #'num_proxies': random.choice([
+            #    self.config['dataset']['train_classes'],
+            #    2 * self.config['dataset']['train_classes'],
+            #    self.config['dataset']['train_classes'] // 2
+            #]),
             'num_heads': random.choice([1, 2, 4]),
+            'num_layers': random.choice([1, 2]),
+            'add_mlp': random.choice([True, False]),
+            'gnn_conv': random.choice(['GAT', 'MDP']),
+            'gnn_fc': random.choice([True, False])
         }
         self.config['gnn'].update(gnn_config)
 

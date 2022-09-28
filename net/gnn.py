@@ -69,7 +69,10 @@ class GNNModel(nn.Module):
             else:
                 feats = l(feats)
 
-        preds = self.fc(feats)
+        if isinstance(self.fc, geom_nn.MessagePassing):
+            preds = self.fc(feats, edge_index)
+        else:
+            preds = self.fc(feats)
 
         if not return_proxies:
             # do not return proxy predictions and features
