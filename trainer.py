@@ -65,6 +65,7 @@ class Trainer():
         best_hypers = {}
         for run in range(1, num_runs + 1):
             if hyper_search:
+                self.logger.info(f'Current best: Run {best_run} | R@1: {best_recall_at_1:.2f}')
                 self.logger.info(f'Search run: {run}/{num_runs}')
                 self.sample_hypers()
 
@@ -211,7 +212,7 @@ class Trainer():
                         resnet.load_state_dict(torch.load(osp.join(self.results_dir, filename)))
                         gnn.load_state_dict(torch.load(osp.join(self.results_dir, filename_gnn)))
 
-            if self.config != 'hyper':
+            if self.config['mode'] != 'hyper':
                 plots_dir = osp.join(self.results_dir, 'plots')
                 os.mkdir(plots_dir)
                 self.test_run(resnet, dl_ev, plots_dir, gnn)
