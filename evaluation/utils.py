@@ -90,15 +90,15 @@ class Evaluator():
             for x, y, p in dataloader:
                 x = x.to(self.device)
                 try:
-                    _, fc7 = model(x, output_option='plain', val=True)
+                    preds, fc7 = model(x, output_option='plain', val=True)
                     fc7s.append(fc7.cpu())
                     targets.append(y)
 
                     if model_gnn:
                         torch.use_deterministic_algorithms(False)
-                        preds, feats = model_gnn(fc7)
+                        preds_gnn, embeds_gnn = model_gnn(fc7, torch.arange(0, 100))
                         torch.use_deterministic_algorithms(True)
-                        feats_gnn.append(feats.cpu())
+                        feats_gnn.append(embeds_gnn.cpu())
 
                 except TypeError:
                     if torch.cuda.device_count() > 1:
