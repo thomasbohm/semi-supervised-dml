@@ -353,7 +353,103 @@ class Trainer():
             optimizer.step()
             first_batch = False
 
+
+
+
     def train_epoch_with_ulb(
+        self,
+        dl_tr_lb: DataLoader,
+        dl_tr_ulb: DataLoader,
+        encoder: nn.Module,
+        head_ulb: Optional[nn.Module],
+        optimizer: Optimizer,
+        loss_fn_lb: nn.Module,
+        loss_fn_ulb: nn.Module,
+        epoch: int,
+        plot_tsne: bool,
+        gnn_model: Optional[GNNModel],
+        gnn_loss_fn: Optional[nn.CrossEntropyLoss]
+    ):
+        temp = self.config['training']['loss_lb_temp']
+        first_batch = True
+        for (x_lb, y_lb, p_lb), (x_ulb_w, x_ulb_s, y_ulb, p_ulb) in zip(dl_tr_lb, dl_tr_ulb):
+            optimizer.zero_grad()
+
+            x = torch.cat((x_lb, x_ulb_w, x_ulb_s)).to(self.device)
+            preds, embeddings = encoder(x, output_option='norm', val=False)
+
+            # Labeled encoder loss
+            preds_lb = preds[:x_lb.shape[0]]
+            y_lb = y_lb.to(self.device)
+            loss_lb = loss_fn_lb(preds_lb / temp, y_lb)
+
+            # Unlabeled encoder loss
+            preds_ulb_w = preds[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
+            preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0] :]
+            preds_ulb_w = F.softmax(preds_ulb_w)
+            preds_max, preds_argmax = preds_ulb_w.max(dim=1)
+            mask = preds_max.gt(self.config['training']['loss_ulb_threshold'])
+            loss_ulb = loss_fn_ulb(preds_ulb_s, preds_argmax) * mask
+            loss_ulb = loss_ulb.mean()
+            
+            loss = loss_lb + self.config['training']['loss_ulb_weight'] * loss_ulb
+            if torch.isnan(loss):
+                self.logger.error('We have NaN numbers, closing\n\n\n')
+                return
+
+            if gnn_model and gnn_loss_fn:
+                proxy_classes = preds_argmax[preds_max > self.config['training']['loss_ulb_gnn_threshold']].unique()
+                proxy_classes = torch.cat((y_lb.unique(), proxy_classes)).unique()
+                self.logger.info(f'proxy_classes.shape: {proxy_classes.shape}')
+                self.logger.info(f'proxy_classes: {proxy_classes}')
+                self.logger.info(f'y_lb: {y_lb}')
+                return
+
+                torch.use_deterministic_algorithms(False)
+                preds_gnn, embeds_gnn, preds_proxies, embeds_proxies = gnn_model(embeddings, return_proxies=True)
+                torch.use_deterministic_algorithms(True)
+
+                preds_gnn_lb = preds_gnn[:x_lb.shape[0]]
+                preds_gnn_ulb_w = preds_gnn[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
+                preds_gnn_ulb_s = preds_gnn[x_lb.shape[0] + x_ulb_w.shape[0] :]
+
+                preds_gnn_ulb_w = F.softmax(preds_gnn_ulb_w)
+                preds_gnn_max, preds_gnn_argmax = preds_gnn_ulb_w.max(dim=1)
+                mask_gnn = preds_gnn_max.gt(self.config['training']['loss_ulb_gnn_threshold'])
+                mask_gnn = torch.cat((torch.ones(x_lb.shape[0], device=self.device), mask_gnn))
+
+                x_gnn = torch.cat((preds_gnn_lb, preds_gnn_ulb_s))
+                y_gnn = torch.cat((y_lb.to(self.device), preds_gnn_argmax))
+
+                loss_gnn = gnn_loss_fn(x_gnn, y_gnn) * mask_gnn
+                loss_gnn = loss_gnn.mean()
+                loss += loss_gnn
+
+                loss_proxies = 0.0
+                if self.config['training']['loss_proxy']:
+                    classes = y_gnn.unique()
+                    loss_proxies = F.cross_entropy(preds_proxies[classes], classes)
+                    loss += loss_proxies
+
+                if first_batch:
+                    self.logger.info(f'ResNet lb : {loss_lb:.2f}')
+                    self.logger.info(f'ResNet ulb: {loss_ulb:.2f}')
+                    self.logger.info(f'GNN       : {loss_gnn:.2f}')
+                    self.logger.info(f'GNN proxy : {loss_proxies:.2f}')
+                    self.logger.info(f'Total loss: {loss:.2f}')
+
+            loss.backward()
+            optimizer.step()
+            first_batch = False
+
+
+
+
+
+
+
+
+    def train_epoch_with_ulb_old(
         self,
         dl_tr_lb: DataLoader,
         dl_tr_ulb: DataLoader,
