@@ -398,11 +398,8 @@ class Trainer():
                 return
 
             if gnn_model and gnn_loss_fn:
-                proxy_classes = preds_argmax[preds_max > self.config['training']['loss_ulb_gnn_threshold']].unique()
-                proxy_classes = torch.cat((y_lb.unique(), proxy_classes)).unique()
-
                 torch.use_deterministic_algorithms(False)
-                preds_gnn, embeds_gnn, preds_proxies, embeds_proxies = gnn_model(embeddings, proxy_classes, return_proxies=True)
+                preds_gnn, embeds_gnn, preds_proxies, embeds_proxies = gnn_model(embeddings, return_proxies=True)
                 torch.use_deterministic_algorithms(True)
 
                 preds_gnn_lb = preds_gnn[:x_lb.shape[0]]

@@ -96,7 +96,7 @@ class Evaluator():
 
                     if model_gnn:
                         torch.use_deterministic_algorithms(False)
-                        preds_gnn, embeds_gnn = model_gnn(fc7, torch.arange(0, 100))
+                        preds_gnn, embeds_gnn = model_gnn(fc7)
                         torch.use_deterministic_algorithms(True)
                         feats_gnn.append(embeds_gnn.cpu())
 
