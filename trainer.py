@@ -424,7 +424,7 @@ class Trainer():
                     loss_proxies = F.cross_entropy(preds_proxies[classes], classes)
                     loss += loss_proxies
 
-                if first_batch:
+                if first_batch and False:
                     self.logger.info(f'ResNet lb : {loss_lb:.2f}')
                     self.logger.info(f'ResNet ulb: {loss_ulb:.2f}')
                     self.logger.info(f'GNN       : {loss_gnn:.2f}')

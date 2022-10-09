@@ -15,19 +15,30 @@ class GNNModel(nn.Module):
         num_proxies = kwargs['num_proxies']
 
         in_channels = embed_dim
+        hidden_dim = 128
         layers = []
+
+        reduction = True
+        if reduction:
+            layers += [
+                nn.Linear(in_channels, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(0.1)
+            ]
+            in_channels = 128
+
         if kwargs['gnn_conv'] == 'GAT':
             for _ in range(kwargs['num_layers']):
                 layers += [
-                    geom_nn.GATConv(in_channels=in_channels, out_channels=embed_dim, heads=num_heads),
+                    geom_nn.GATConv(in_channels=in_channels, out_channels=hidden_dim, heads=num_heads),
                     nn.ReLU(),
                     nn.Dropout(0.1)
                 ]
-                in_channels = num_heads * embed_dim
+                in_channels = num_heads * hidden_dim
         else:
             for _ in range(kwargs['num_layers']):
                 layers += [
-                    MultiHeadDotProduct(embed_dim, num_heads, aggr='add', dropout=0.1),
+                    MultiHeadDotProduct(in_channels, num_heads, aggr='add', dropout=0.1),
                     nn.ReLU(),
                     nn.Dropout(0.1)
                 ]
@@ -43,7 +54,9 @@ class GNNModel(nn.Module):
             ]
         elif in_channels != embed_dim:
             layers += [
-                nn.Linear(in_channels, embed_dim)
+                nn.Linear(in_channels, embed_dim),
+                nn.ReLU(),
+                nn.Dropout(0.1)
             ]
 
         self.layers = nn.ModuleList(layers)
