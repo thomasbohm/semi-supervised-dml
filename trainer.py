@@ -422,7 +422,10 @@ class Trainer():
                 if self.config['training']['loss_proxy'] == 'l2':
                     embeds_gnn_lb = embeds_gnn[:x_lb.shape[0]]
                     embeds_gnn_ulb_s = embeds_gnn[x_lb.shape[0] + x_ulb_w.shape[0] :]
+                    self.logger.info(f'embeds_gnn_lb.shape: {embeds_gnn_lb.shape}')
+                    self.logger.info(f'embeds_gnn_ulb_s.shape: {embeds_gnn_ulb_s.shape}')
                     embeds = torch.cat((embeds_gnn_lb, embeds_gnn_ulb_s))
+                    self.logger.info(f'embeds.shape: {embeds.shape}')
                     proxies = torch.index_select(gnn_model.proxies, 0, y_gnn)
                     loss_proxies = F.mse_loss(embeds, proxies, reduction='none') * mask_gnn
                     loss_proxies = loss_proxies.mean()
