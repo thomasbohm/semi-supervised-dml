@@ -427,9 +427,9 @@ class Trainer():
                     proxies = torch.index_select(gnn_model.proxies, 0, y_gnn)
                     #self.logger.info(f'proxies.shape: {proxies.shape}')
                     #self.logger.info(f'y_gnn.shape: {y_gnn.shape}')
+                    self.logger.info(f'mask_gnn.shape: {mask_gnn.shape}')
                     loss_proxies = F.mse_loss(embeds, proxies, reduction='none')
                     self.logger.info(f'loss_proxies.shape: {loss_proxies.shape}')
-                    self.logger.info(f'mask_gnn.shape: {mask_gnn.shape}')
                     loss_proxies *= mask_gnn
                     loss_proxies = loss_proxies.mean()
                 elif self.config['training']['loss_proxy'] == 'ce':
