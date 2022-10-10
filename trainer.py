@@ -420,8 +420,11 @@ class Trainer():
 
                 loss_proxies = 0.0
                 if self.config['training']['loss_proxy'] == 'l2':
+                    embeds_gnn_lb = embeds_gnn[:x_lb.shape[0]]
+                    embeds_gnn_ulb_s = embeds_gnn[x_lb.shape[0] + x_ulb_w.shape[0] :]
+                    embeds = torch.cat((embeds_gnn_lb, embeds_gnn_ulb_s))
                     proxies = torch.index_select(gnn_model.proxies, 0, y_gnn)
-                    loss_proxies = F.mse_loss(embeds_gnn, proxies, reduction='none') * mask_gnn
+                    loss_proxies = F.mse_loss(embeds, proxies, reduction='none') * mask_gnn
                     loss_proxies = loss_proxies.mean()
                 elif self.config['training']['loss_proxy'] == 'ce':
                     classes = y_gnn.unique()
