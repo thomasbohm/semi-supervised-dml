@@ -412,19 +412,23 @@ class Trainer():
                 mask_gnn = torch.cat((torch.ones(x_lb.shape[0], device=self.device), mask_gnn))
 
                 x_gnn = torch.cat((preds_gnn_lb, preds_gnn_ulb_s))
-                y_gnn = torch.cat((y_lb.to(self.device), preds_gnn_argmax))
+                y_gnn = torch.cat((y_lb, preds_gnn_argmax))
 
                 loss_gnn = gnn_loss_fn(x_gnn, y_gnn) * mask_gnn
                 loss_gnn = loss_gnn.mean()
                 loss += loss_gnn
 
                 loss_proxies = 0.0
-                if self.config['training']['loss_proxy']:
+                if self.config['training']['loss_proxy'] == 'l2':
+                    proxies = torch.index_select(gnn_model.proxies, 0, y_gnn)
+                    loss_proxies = F.mse_loss(embeds_gnn, proxies, reduction='none') * mask_gnn
+                    loss_proxies = loss_proxies.mean()
+                elif self.config['training']['loss_proxy'] == 'ce':
                     classes = y_gnn.unique()
                     loss_proxies = F.cross_entropy(preds_proxies[classes], classes)
                     loss += loss_proxies
 
-                if first_batch and False:
+                if first_batch:
                     self.logger.info(f'ResNet lb : {loss_lb:.2f}')
                     self.logger.info(f'ResNet ulb: {loss_ulb:.2f}')
                     self.logger.info(f'GNN       : {loss_gnn:.2f}')
