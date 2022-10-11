@@ -31,7 +31,7 @@ class Evaluator():
         if not model_gnn:
             feats, targets, feats_gnn = self.predict_batchwise(model, dataloader)
         else:
-            feats, targets, feats_gnn = self.predict_batchwise(model, dataloader, model_gnn=model_gnn)
+            feats, targets, feats_gnn = self.predict_batchwise(model, dataloader, model_gnn=model_gnn, num_classes=num_classes)
 
         if tsne:
             self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_final.png'))
@@ -81,7 +81,7 @@ class Evaluator():
         model.train(model_is_training)
         return recalls, nmi
 
-    def predict_batchwise(self, model, dataloader, model_gnn=None):
+    def predict_batchwise(self, model, dataloader, model_gnn=None, num_classes=None):
         fc7s, targets = [], []
         feats_gnn = []
         with torch.no_grad():
@@ -92,9 +92,10 @@ class Evaluator():
                     fc7s.append(F.normalize(fc7, p=2, dim=1).cpu())
                     targets.append(y)
 
-                    if model_gnn:
+                    if model_gnn and num_classes is not None:
+                        proxy_idx = y.unique() - num_classes
                         torch.use_deterministic_algorithms(False)
-                        preds_gnn, embeds_gnn = model_gnn(fc7)
+                        preds_gnn, embeds_gnn = model_gnn(fc7, proxy_idx=proxy_idx)
                         torch.use_deterministic_algorithms(True)
                         feats_gnn.append(F.normalize(embeds_gnn, p=2, dim=1).cpu())
 

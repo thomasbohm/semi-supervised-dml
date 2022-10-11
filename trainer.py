@@ -387,9 +387,9 @@ class Trainer():
             preds_ulb_w = preds[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
             preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0] :]
             preds_ulb_w = F.softmax(preds_ulb_w)
-            preds_max, preds_argmax = preds_ulb_w.max(dim=1)
-            mask = preds_max.gt(self.config['training']['loss_ulb_threshold'])
-            loss_ulb = loss_fn_ulb(preds_ulb_s, preds_argmax) * mask
+            preds_ulb_w_max, y_ulb_w = preds_ulb_w.max(dim=1)
+            mask = preds_ulb_w_max.gt(self.config['training']['loss_ulb_threshold'])
+            loss_ulb = loss_fn_ulb(preds_ulb_s, y_ulb_w) * mask
             loss_ulb = loss_ulb.mean()
             
             loss = loss_lb + self.config['training']['loss_ulb_weight'] * loss_ulb
@@ -398,8 +398,10 @@ class Trainer():
                 return
 
             if gnn_model and gnn_loss_fn:
+                proxy_idx = torch.cat((y_lb, y_ulb_w[preds_ulb_w_max > self.config['training']['loss_ulb_threshold']])).unique()
+                self.logger.info(f'proxy_idx.shape: {proxy_idx.shape} | y_lb.unique().shape: {y_lb.unique().shape}')
                 torch.use_deterministic_algorithms(False)
-                preds_gnn, embeds_gnn, preds_proxies, embeds_proxies = gnn_model(embeddings, return_proxies=True)
+                preds_gnn, embeds_gnn, preds_proxies, embeds_proxies = gnn_model(embeddings, return_proxies=True, proxy_idx=proxy_idx)
                 torch.use_deterministic_algorithms(True)
 
                 preds_gnn_lb = preds_gnn[:x_lb.shape[0]]

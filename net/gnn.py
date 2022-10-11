@@ -66,15 +66,17 @@ class GNNModel(nn.Module):
             self.fc = nn.Linear(embed_dim, output_dim)
 
         self.proxies = nn.parameter.Parameter(torch.randn((num_proxies, embed_dim))).to(device)
-        self.num_proxies = num_proxies
         self.device = device
 
 
-    def forward(self, x, return_proxies=False):
+    def forward(self, x, proxy_idx, return_proxies=False):
         # nodes = proxies + x
-        feats = torch.cat([self.proxies, x])
+        proxies = self.proxies[proxy_idx]
+        num_proxies = proxies.shape[0]
+        feats = torch.cat([proxies, x])
         # connect every sample with every proxy
-        edge_index = self.get_edge_index(feats).to(self.device)
+        edge_index = self.get_edge_index(feats, num_proxies=num_proxies).to(self.device)
+        print(f'num_proxies: {num_proxies} | edge_index.shape: {edge_index.shape}')
 
         for l in self.layers:
             if isinstance(l, (geom_nn.MessagePassing, MultiHeadDotProduct)):
@@ -89,19 +91,18 @@ class GNNModel(nn.Module):
 
         if not return_proxies:
             # do not return proxy predictions and features
-            return preds[self.num_proxies:], feats[self.num_proxies:]
+            return preds[num_proxies:], feats[num_proxies:]
         else:
-            return preds[self.num_proxies:], feats[self.num_proxies:], preds[:self.num_proxies], feats[:self.num_proxies]
+            return preds[num_proxies:], feats[num_proxies:], preds[:num_proxies], feats[:num_proxies]
     
 
-    def get_edge_index(self, nodes):
+    def get_edge_index(self, nodes, num_proxies):
         edges = []
-        num_samples = nodes.shape[0] - self.num_proxies
-        for p in range(self.num_proxies):
+        num_samples = nodes.shape[0] - num_proxies
+        for p in range(num_proxies):
             for i in range(num_samples):
-                edges.append([p, i + self.num_proxies])
-                edges.append([i + self.num_proxies, p])
+                edges.append([p, i + num_proxies])
+                edges.append([i + num_proxies, p])
         
         edge_index = torch.tensor(edges, dtype=torch.long).t()
-
         return edge_index
