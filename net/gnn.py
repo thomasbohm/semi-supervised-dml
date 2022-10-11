@@ -76,7 +76,6 @@ class GNNModel(nn.Module):
         feats = torch.cat([proxies, x])
         # connect every sample with every proxy
         edge_index = self.get_edge_index(feats, num_proxies=num_proxies).to(self.device)
-        print(f'num_proxies: {num_proxies} | edge_index.shape: {edge_index.shape}')
 
         for l in self.layers:
             if isinstance(l, (geom_nn.MessagePassing, MultiHeadDotProduct)):

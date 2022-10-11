@@ -37,11 +37,12 @@ class Evaluator():
             self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_final.png'))
         
         if model_gnn and feats_gnn is not None:
+            num_proxies = model_gnn.proxies.shape[0]
             self.create_tsne_plot_gnn(
                 torch.cat([model_gnn.proxies.cpu(), feats_gnn]),
-                torch.cat([torch.arange(model_gnn.num_proxies, 2 * model_gnn.num_proxies, 1), targets]),
+                torch.cat([torch.arange(num_proxies, 2 * num_proxies, 1), targets]),
                 osp.join(plot_dir, 'tsne_gnn.png'),
-                num_proxies=model_gnn.num_proxies
+                num_proxies=num_proxies
             )
             self.create_distance_plot_gnn(
                 feats_gnn,
