@@ -5,7 +5,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.manifold import TSNE
-
+import torch.nn.functional as F
 from .normalized_mutual_information import calc_normalized_mutual_information, cluster_by_kmeans
 from .recall import calc_recall_at_k, assign_by_euclidian_at_k
 
@@ -90,15 +90,15 @@ class Evaluator():
             for x, y, p in dataloader:
                 x = x.to(self.device)
                 try:
-                    preds, fc7 = model(x, output_option='plain', val=True)
-                    fc7s.append(fc7.cpu())
+                    preds, fc7 = model(x, output_option='norm', val=True)
+                    fc7s.append(F.normalize(fc7, p=2, dim=1).cpu())
                     targets.append(y)
 
                     if model_gnn:
                         torch.use_deterministic_algorithms(False)
                         preds_gnn, embeds_gnn = model_gnn(fc7)
                         torch.use_deterministic_algorithms(True)
-                        feats_gnn.append(embeds_gnn.cpu())
+                        feats_gnn.append(F.normalize(embeds_gnn, p=2, dim=1).cpu())
 
                 except TypeError:
                     if torch.cuda.device_count() > 1:
