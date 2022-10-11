@@ -28,12 +28,10 @@ class Evaluator():
         model_is_training = model.training
         model.eval()
 
-        feats_gnn = None
         if not model_gnn:
-            feats, targets = self.predict_batchwise(model, dataloader)
+            feats, targets, feats_gnn = self.predict_batchwise(model, dataloader)
         else:
             feats, targets, feats_gnn = self.predict_batchwise(model, dataloader, model_gnn=model_gnn)
-
 
         if tsne:
             self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_final.png'))
@@ -112,7 +110,7 @@ class Evaluator():
                         raise TypeError()
         if not model_gnn:
             fc7, targets = torch.cat(fc7s), torch.cat(targets)
-            return torch.squeeze(fc7), torch.squeeze(targets)
+            return torch.squeeze(fc7), torch.squeeze(targets), None
         else:
             fc7, targets, feats_gnn = torch.cat(fc7s), torch.cat(targets), torch.cat(feats_gnn)
             return torch.squeeze(fc7), torch.squeeze(targets), torch.squeeze(feats_gnn)

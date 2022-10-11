@@ -426,6 +426,7 @@ class Trainer():
                     proxies = torch.index_select(gnn_model.proxies, 0, y_gnn)
                     loss_proxies = F.mse_loss(embeds, proxies, reduction='none') * mask_gnn.unsqueeze(1)
                     loss_proxies = loss_proxies.mean()
+                    loss += loss_proxies
                 elif self.config['training']['loss_proxy'] == 'ce':
                     classes = y_gnn.unique()
                     loss_proxies = F.cross_entropy(preds_proxies[classes], classes)
