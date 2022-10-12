@@ -15,17 +15,17 @@ class GNNModel(nn.Module):
         num_proxies = kwargs['num_proxies']
 
         in_channels = embed_dim
-        hidden_dim = 128
         layers = []
-
-        reduction = True
-        if reduction:
+        if kwargs['reduction_layer']:
+            hidden_dim = 128
             layers += [
                 nn.Linear(in_channels, hidden_dim),
                 nn.ReLU(),
                 nn.Dropout(0.1)
             ]
             in_channels = 128
+        else:
+            hidden_dim = 512
 
         if kwargs['gnn_conv'] == 'GAT':
             for _ in range(kwargs['num_layers']):

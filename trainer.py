@@ -121,7 +121,8 @@ class Trainer():
                     num_proxies = self.config['gnn']['num_proxies'],
                     add_mlp = self.config['gnn']['add_mlp'],
                     gnn_conv = self.config['gnn']['gnn_conv'],
-                    gnn_fc = self.config['gnn']['gnn_fc']
+                    gnn_fc = self.config['gnn']['gnn_fc'],
+                    reduction_layer = self.config['gnn']['reduction_layer']
                 ).to(self.device)
 
                 if self.config['gnn']['pretrained_path'] not in ['', 'no']:

@@ -15,6 +15,7 @@ gnn:
   add_mlp: False
   gnn_conv: "GAT"
   gnn_fc: False
+  reduction_layer: False
 
 dataset:
   path: "data/CARS"
