@@ -431,7 +431,7 @@ class Trainer():
                     proxies = torch.index_select(gnn_model.proxies, 0, y_gnn)
                     loss_proxies = F.mse_loss(embeds, proxies, reduction='none') * mask_gnn.unsqueeze(1)
                     loss_proxies = loss_proxies.mean()
-                    loss += loss_proxies
+                    loss += self.config['training']['loss_proxy_weight'] * loss_proxies
                 elif self.config['training']['loss_proxy'] == 'ce':
                     classes = y_gnn.unique()
                     loss_proxies = F.cross_entropy(preds_proxies[classes], classes)
@@ -439,9 +439,9 @@ class Trainer():
 
                 if first_batch:
                     self.logger.info(f'ResNet lb : {loss_lb:.2f}')
-                    self.logger.info(f'ResNet ulb: {loss_ulb:.2f}')
+                    self.logger.info(f'ResNet ulb: {self.config["training"]["loss_ulb_weight"] * loss_ulb:.2f}')
                     self.logger.info(f'GNN       : {loss_gnn:.2f}')
-                    self.logger.info(f'GNN proxy : {loss_proxies:.2f}')
+                    self.logger.info(f'GNN proxy : {self.config["training"]["loss_proxy_weight"] * loss_proxies:.2f}')
                     self.logger.info(f'Total loss: {loss:.2f}')
 
             loss.backward()

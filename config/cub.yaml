@@ -15,6 +15,7 @@ gnn:
   add_mlp: False
   gnn_conv: "GAT"
   gnn_fc: False
+  reduction_layer: False
 
 dataset:
   path: "data/CUB"
@@ -31,6 +32,7 @@ dataset:
 training:
   epochs: 1
   lr: 0.0001
+  lr_gnn: 0.0001
   weight_decay: 0.000006
   num_classes_iter: 6
   num_elements_class: 9
@@ -43,4 +45,5 @@ training:
   loss_ulb_threshold: 0.8
   loss_ulb_gnn_threshold: 0.9
   loss_proxy: False
+  loss_proxy_weight: 1
   ulb_batch_size_factor: 7
