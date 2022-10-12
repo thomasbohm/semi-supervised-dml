@@ -402,7 +402,6 @@ class Trainer():
 
             if gnn_model and gnn_loss_fn:
                 proxy_idx = torch.cat((y_lb, y_ulb_w[preds_ulb_w_max > self.config['training']['loss_ulb_threshold']])).unique()
-                self.logger.info(f'proxy_idx.shape: {proxy_idx.shape} | y_lb.unique().shape: {y_lb.unique().shape}')
                 torch.use_deterministic_algorithms(False)
                 preds_gnn, embeds_gnn, preds_proxies, embeds_proxies = gnn_model(embeddings, return_proxies=True, proxy_idx=proxy_idx)
                 torch.use_deterministic_algorithms(True)
@@ -454,7 +453,7 @@ class Trainer():
 
 
 
-
+    '''
     def train_epoch_with_ulb_old(
         self,
         dl_tr_lb: DataLoader,
@@ -604,7 +603,7 @@ class Trainer():
             loss.backward()
             optimizer.step()
             first_batch = False
-
+    '''
     def test_run(self, model: nn.Module, dl_ev: DataLoader, plots_dir, model_gnn=None):
         with torch.no_grad():
             recalls, nmi = self.evaluator.evaluate(
