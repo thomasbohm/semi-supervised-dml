@@ -27,6 +27,10 @@ class Evaluator():
     def evaluate(self, model, dataloader, dataroot, num_classes, tsne=False, plot_dir='', model_gnn=None) -> Tuple[List[float], float]:
         model_is_training = model.training
         model.eval()
+        gnn_is_training = False
+        if model_gnn:
+            gnn_is_training = model_gnn.training
+            model_gnn.eval()
 
         if not model_gnn:
             feats, targets, feats_gnn = self.predict_batchwise(model, dataloader)
@@ -80,6 +84,8 @@ class Evaluator():
             nmi = -1.0
 
         model.train(model_is_training)
+        if model_gnn:
+            model_gnn.train(gnn_is_training)
         return recalls, nmi
 
     def predict_batchwise(self, model, dataloader, model_gnn=None, num_classes=None):
