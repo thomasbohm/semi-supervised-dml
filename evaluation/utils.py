@@ -163,7 +163,7 @@ class Evaluator():
         data = self.get_proxies_to_class_avg(feats, proxies, targets, num_classes)
 
         fig, ax = plt.subplots()
-        im = ax.imshow(data, cmap='tab20')
+        im = ax.imshow(data)
 
         ax.set_xlabel('Classes')
         ax.set_ylabel('Proxies')
