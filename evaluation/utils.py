@@ -141,7 +141,7 @@ class Evaluator():
             self.logger.info('Creating tsne embeddings...')
             feats_tsne = self.tsne_model.fit_transform(feats.detach().cpu())
             fig, ax = plt.subplots()
-            ax.scatter(*feats_tsne.T, c=self.get_colors(targets).tolist(), s=10, alpha=0.6)
+            ax.scatter(*feats_tsne.T, c=self.get_colors(targets).tolist(), s=5, alpha=0.6, cmap='tab20')
             
             fig.set_size_inches(11.69,8.27)
             fig.savefig(path)
@@ -152,8 +152,8 @@ class Evaluator():
             self.logger.info('Creating tsne gnn embeddings...')
             feats_tsne = self.tsne_model.fit_transform(feats.detach().cpu())
             fig, ax = plt.subplots()
-            ax.scatter(*feats_tsne[num_proxies:].T, c=self.get_colors(targets[num_proxies:]).tolist(), s=10, alpha=0.6)
-            ax.scatter(*feats_tsne[:num_proxies].T, c=self.get_colors(targets[:num_proxies]).tolist(), s=50, alpha=1, marker='*')
+            ax.scatter(*feats_tsne[num_proxies:].T, c=self.get_colors(targets[num_proxies:]).tolist(), s=5, alpha=0.6, cmap='tab20')
+            ax.scatter(*feats_tsne[:num_proxies].T, c=self.get_colors(targets[:num_proxies]).tolist(), s=50, alpha=1, marker='*', cmap='tab20')
 
             fig.set_size_inches(11.69,8.27)
             fig.savefig(path)
@@ -163,7 +163,7 @@ class Evaluator():
         data = self.get_proxies_to_class_avg(feats, proxies, targets, num_classes)
 
         fig, ax = plt.subplots()
-        im = ax.imshow(data)
+        im = ax.imshow(data, cmap='tab20')
 
         ax.set_xlabel('Classes')
         ax.set_ylabel('Proxies')
