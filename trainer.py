@@ -128,7 +128,10 @@ class Trainer():
                     gnn.load_state_dict(torch.load(self.config['gnn']['pretrained_path']))
 
                 self.logger.info(gnn)
-                params = list(set(resnet.parameters())) + list(set(gnn.parameters()))
+                params = [
+                    { 'params': resnet.parameters() },
+                    { 'params': gnn.parameters(), 'lr': self.config['training']['lr_gnn'] }
+                ]
                 loss_fn_gnn = nn.CrossEntropyLoss(reduction='none')
 
             # Optimizer

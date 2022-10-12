@@ -31,6 +31,7 @@ dataset:
 training:
   epochs: 20
   lr: 0.0001
+  lr_gnn: 0.0001
   weight_decay: 0.000006
   num_classes_iter: 15
   num_elements_class: 6
