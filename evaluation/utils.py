@@ -44,7 +44,7 @@ class Evaluator():
             num_proxies = model_gnn.proxies.shape[0]
             self.create_tsne_plot_gnn(
                 torch.cat([model_gnn.proxies.cpu(), feats_gnn]),
-                torch.cat([torch.arange(num_proxies, 2 * num_proxies, 1), targets]),
+                targets,
                 osp.join(plot_dir, 'tsne_gnn.png'),
                 num_proxies=num_proxies
             )
@@ -125,23 +125,22 @@ class Evaluator():
 
     def get_colors(self, Y: torch.Tensor):
         assert len(Y.shape) == 1
-        
-        C = torch.zeros_like(Y)
+        colors = []
         color_map = {}
         for i in range(Y.shape[0]):
             y = Y[i].item()
             if y not in color_map:
                 num_colors = len(color_map)
                 color_map[y] = num_colors
-            C[i] = color_map[y]
-        return C.float()
+            colors.append(color_map[y])
+        return colors
     
     def create_tsne_plot(self, feats, targets, path):
         with torch.no_grad():
             self.logger.info('Creating tsne embeddings...')
             feats_tsne = self.tsne_model.fit_transform(feats.detach().cpu())
             fig, ax = plt.subplots()
-            ax.scatter(*feats_tsne.T, c=self.get_colors(targets).tolist(), s=5, alpha=0.6, cmap='tab20')
+            ax.scatter(*feats_tsne.T, c=self.get_colors(targets), s=5, alpha=0.6, cmap='tab20')
             
             fig.set_size_inches(11.69,8.27)
             fig.savefig(path)
@@ -152,8 +151,8 @@ class Evaluator():
             self.logger.info('Creating tsne gnn embeddings...')
             feats_tsne = self.tsne_model.fit_transform(feats.detach().cpu())
             fig, ax = plt.subplots()
-            ax.scatter(*feats_tsne[num_proxies:].T, c=self.get_colors(targets[num_proxies:]).tolist(), s=5, alpha=0.6, cmap='tab20')
-            ax.scatter(*feats_tsne[:num_proxies].T, c=self.get_colors(targets[:num_proxies]).tolist(), s=50, alpha=1, marker='*', cmap='tab20')
+            ax.scatter(*feats_tsne[num_proxies:].T, c=self.get_colors(targets), s=5, alpha=0.6, cmap='tab20')
+            ax.scatter(*feats_tsne[:num_proxies].T, c=list(range(num_proxies)), s=50, alpha=1, marker='*', cmap='tab20')
 
             fig.set_size_inches(11.69,8.27)
             fig.savefig(path)
