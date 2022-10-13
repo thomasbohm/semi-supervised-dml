@@ -24,7 +24,7 @@ class Evaluator():
 
         self.tsne_model = TSNE(n_components=2, learning_rate='auto', random_state=0, init='pca')
 
-    def evaluate(self, model, dataloader, dataroot, num_classes, tsne=False, plot_dir='', model_gnn=None) -> Tuple[List[float], float]:
+    def evaluate(self, model, dataloader, dataroot, num_classes, tsne=False, plot_dir='', model_gnn=None, batch_proxies=False) -> Tuple[List[float], float]:
         model_is_training = model.training
         model.eval()
         gnn_is_training = False
@@ -35,7 +35,7 @@ class Evaluator():
         if not model_gnn:
             feats, targets, feats_gnn = self.predict_batchwise(model, dataloader)
         else:
-            feats, targets, feats_gnn = self.predict_batchwise(model, dataloader, model_gnn=model_gnn, num_classes=num_classes)
+            feats, targets, feats_gnn = self.predict_batchwise(model, dataloader, model_gnn=model_gnn, num_classes=num_classes, batch_proxies=batch_proxies)
 
         if tsne:
             self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_final.png'))
@@ -88,7 +88,7 @@ class Evaluator():
             model_gnn.train(gnn_is_training)
         return recalls, nmi
 
-    def predict_batchwise(self, model, dataloader, model_gnn=None, num_classes=None):
+    def predict_batchwise(self, model, dataloader, model_gnn=None, num_classes=None, batch_proxies=False):
         fc7s, targets = [], []
         feats_gnn = []
         with torch.no_grad():
@@ -100,7 +100,10 @@ class Evaluator():
                     targets.append(y)
 
                     if model_gnn and num_classes is not None:
-                        proxy_idx = y.unique() - num_classes
+                        if batch_proxies:
+                            proxy_idx = y.unique() - num_classes
+                        else:
+                            proxy_idx = None
                         torch.use_deterministic_algorithms(False)
                         preds_gnn, embeds_gnn = model_gnn(fc7, proxy_idx=proxy_idx)
                         torch.use_deterministic_algorithms(True)

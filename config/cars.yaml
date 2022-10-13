@@ -16,6 +16,7 @@ gnn:
   gnn_conv: "GAT"
   gnn_fc: False
   reduction_layer: False
+  batch_proxies: False
 
 dataset:
   path: "data/CARS"

@@ -402,7 +402,10 @@ class Trainer():
                 return
 
             if gnn_model and gnn_loss_fn:
-                proxy_idx = torch.cat((y_lb, y_ulb_w[preds_ulb_w_max > self.config['training']['loss_ulb_threshold']])).unique()
+                if self.config['gnn']['batch_proxies']:
+                    proxy_idx = torch.cat((y_lb, y_ulb_w[preds_ulb_w_max > self.config['training']['loss_ulb_threshold']])).unique()
+                else:
+                    proxy_idx = None
                 torch.use_deterministic_algorithms(False)
                 preds_gnn, embeds_gnn, preds_proxies, embeds_proxies = gnn_model(embeddings, return_proxies=True, proxy_idx=proxy_idx)
                 torch.use_deterministic_algorithms(True)
@@ -614,7 +617,8 @@ class Trainer():
                 num_classes=self.config['dataset']['train_classes'],
                 tsne=True,
                 model_gnn=model_gnn,
-                plot_dir=plots_dir
+                plot_dir=plots_dir,
+                batch_proxies=self.config['gnn']['batch_proxies']
             )
             return recalls, nmi
 

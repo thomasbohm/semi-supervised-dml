@@ -69,9 +69,12 @@ class GNNModel(nn.Module):
         self.device = device
 
 
-    def forward(self, x, proxy_idx, return_proxies=False):
+    def forward(self, x, proxy_idx=None, return_proxies=False):
         # nodes = proxies + x
-        proxies = self.proxies[proxy_idx]
+        if proxy_idx:
+            proxies = self.proxies[proxy_idx]
+        else:
+            proxies = self.proxies
         num_proxies = proxies.shape[0]
         feats = torch.cat([proxies, x])
         # connect every sample with every proxy
