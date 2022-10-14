@@ -41,9 +41,10 @@ class Evaluator():
             self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_final.svg'))
         
         if model_gnn and feats_gnn is not None:
-            num_proxies = model_gnn.proxies.shape[0]
+            proxies = F.normalize(model_gnn.proxies, p=2, dim=1).cpu()
+            num_proxies = proxies.shape[0]
             self.create_tsne_plot_gnn(
-                torch.cat([model_gnn.proxies.cpu(), feats_gnn]),
+                torch.cat([proxies, feats_gnn]),
                 targets,
                 osp.join(plot_dir, 'tsne_gnn.svg'),
                 num_proxies=num_proxies
@@ -51,7 +52,7 @@ class Evaluator():
             self.create_distance_plot_gnn(
                 feats_gnn,
                 targets,
-                model_gnn.proxies.cpu(),
+                proxies,
                 num_classes,
                 osp.join(plot_dir, 'dist_gnn.svg')
             )

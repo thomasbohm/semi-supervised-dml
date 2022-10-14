@@ -25,7 +25,7 @@ class GNNModel(nn.Module):
             ]
             in_channels = 128
         else:
-            hidden_dim = 512
+            hidden_dim = 512 // num_heads
 
         if kwargs['gnn_conv'] == 'GAT':
             for _ in range(kwargs['num_layers']):
