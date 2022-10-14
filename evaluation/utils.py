@@ -38,14 +38,14 @@ class Evaluator():
             feats, targets, feats_gnn = self.predict_batchwise(model, dataloader, model_gnn=model_gnn, num_classes=num_classes, batch_proxies=batch_proxies)
 
         if tsne:
-            self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_final.png'))
+            self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_final.svg'))
         
         if model_gnn and feats_gnn is not None:
             num_proxies = model_gnn.proxies.shape[0]
             self.create_tsne_plot_gnn(
                 torch.cat([model_gnn.proxies.cpu(), feats_gnn]),
                 targets,
-                osp.join(plot_dir, 'tsne_gnn.png'),
+                osp.join(plot_dir, 'tsne_gnn.svg'),
                 num_proxies=num_proxies
             )
             self.create_distance_plot_gnn(
@@ -53,7 +53,7 @@ class Evaluator():
                 targets,
                 model_gnn.proxies.cpu(),
                 num_classes,
-                osp.join(plot_dir, 'dist_gnn.png')
+                osp.join(plot_dir, 'dist_gnn.svg')
             )
             np.savez(osp.join(
                 plot_dir, 'data_gnn.npz'),

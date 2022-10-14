@@ -344,7 +344,7 @@ class Trainer():
                 loss += loss_gnn
 
             if plot_tsne and epoch % 10 == 0 and first_batch:
-                path = osp.join(self.results_dir, f'tsne_train_lb_{epoch}.png')
+                path = osp.join(self.results_dir, f'tsne_train_lb_{epoch}.svg')
                 self.evaluator.create_tsne_plot(embeddings, y, path)
                 # self.logger.info(f'Counter(y_lb): {Counter(y.tolist()).most_common()}')
 
