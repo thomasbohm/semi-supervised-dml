@@ -71,7 +71,7 @@ class GNNModel(nn.Module):
 
     def forward(self, x, proxy_idx=None, return_proxies=False):
         # nodes = proxies + x
-        if proxy_idx:
+        if proxy_idx is not None:
             proxies = self.proxies[proxy_idx]
         else:
             proxies = self.proxies
