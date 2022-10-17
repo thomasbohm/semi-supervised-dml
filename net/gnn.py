@@ -78,12 +78,6 @@ class GNNModel(nn.Module):
         
         # connect every sample with k closest proxies
         edge_index = self.get_edge_index(x, proxies, kclosest, true_proxy).to(self.device)
-        print('x:', x.shape)
-        print('true_proxy:', true_proxy.shape)
-        print('proxy_idx:', (proxy_idx.shape if proxy_idx else 'None'))
-        print('proxies:', proxies.shape)
-        print('kclosest:', kclosest)
-        print('edge_index:', edge_index.shape)
         
         # feats = proxies + x
         feats = torch.cat([proxies, x])
@@ -111,7 +105,6 @@ class GNNModel(nn.Module):
         _, closest_idx = torch.topk(dist, kclosest, dim=1, largest=False) # (B, k)
 
         edges = []
-        debug_count = 0
         for i in range(nodes.shape[0]):
             for p in closest_idx[i]:
                 edges.append([p, i])
@@ -119,8 +112,6 @@ class GNNModel(nn.Module):
             if true_proxy[i] not in closest_idx[i]:
                 edges.append([i, true_proxy[i]])
                 edges.append([true_proxy[i], i])
-                debug_count += 1
-        print('debug_count:', debug_count)
         
         edge_index = torch.tensor(edges, dtype=torch.long).t()
         return edge_index
