@@ -69,16 +69,24 @@ class GNNModel(nn.Module):
         self.device = device
 
 
-    def forward(self, x, proxy_idx=None, return_proxies=False):
-        # nodes = proxies + x
+    def forward(self, x, true_proxy, proxy_idx=None, return_proxies=False, kclosest=12):
         if proxy_idx is not None:
             proxies = self.proxies[proxy_idx]
         else:
             proxies = self.proxies
         num_proxies = proxies.shape[0]
+        
+        # connect every sample with k closest proxies
+        edge_index = self.get_edge_index(x, proxies, kclosest, true_proxy).to(self.device)
+        print('x:', x.shape)
+        print('true_proxy:', true_proxy.shape)
+        print('proxy_idx:', (proxy_idx.shape if proxy_idx else 'None'))
+        print('proxies:', proxies.shape)
+        print('kclosest:', kclosest)
+        print('edge_index:', edge_index.shape)
+        
+        # feats = proxies + x
         feats = torch.cat([proxies, x])
-        # connect every sample with every proxy
-        edge_index = self.get_edge_index(feats, num_proxies=num_proxies).to(self.device)
 
         for l in self.layers:
             if isinstance(l, (geom_nn.MessagePassing, MultiHeadDotProduct)):
@@ -98,13 +106,21 @@ class GNNModel(nn.Module):
             return preds[num_proxies:], feats[num_proxies:], preds[:num_proxies], feats[:num_proxies]
     
 
-    def get_edge_index(self, nodes, num_proxies):
+    def get_edge_index(self, nodes, proxies, kclosest, true_proxy):
+        dist = torch.sqrt(((nodes[:, None, :] - proxies[None, :, :]) ** 2).sum(dim=2)) # (B, P)
+        _, closest_idx = torch.topk(dist, kclosest, dim=1, largest=False) # (B, k)
+
         edges = []
-        num_samples = nodes.shape[0] - num_proxies
-        for p in range(num_proxies):
-            for i in range(num_samples):
-                edges.append([p, i + num_proxies])
-                edges.append([i + num_proxies, p])
+        debug_count = 0
+        for i in range(nodes.shape[0]):
+            for p in closest_idx[i]:
+                edges.append([p, i])
+                edges.append([i, p])
+            if true_proxy[i] not in closest_idx[i]:
+                edges.append([i, true_proxy[i]])
+                edges.append([true_proxy[i], i])
+                debug_count += 1
+        print('debug_count:', debug_count)
         
         edge_index = torch.tensor(edges, dtype=torch.long).t()
         return edge_index

@@ -24,7 +24,18 @@ class Evaluator():
 
         self.tsne_model = TSNE(n_components=2, learning_rate='auto', random_state=0, init='pca')
 
-    def evaluate(self, model, dataloader, dataroot, num_classes, tsne=False, plot_dir='', model_gnn=None, batch_proxies=False) -> Tuple[List[float], float]:
+    def evaluate(
+        self,
+        model,
+        dataloader,
+        dataroot,
+        num_classes,
+        tsne=False,
+        plot_dir='',
+        model_gnn=None,
+        batch_proxies=False,
+        kclosest=12
+    ) -> Tuple[List[float], float]:
         model_is_training = model.training
         model.eval()
         gnn_is_training = False
@@ -35,7 +46,14 @@ class Evaluator():
         if not model_gnn:
             feats, targets, feats_gnn = self.predict_batchwise(model, dataloader)
         else:
-            feats, targets, feats_gnn = self.predict_batchwise(model, dataloader, model_gnn=model_gnn, num_classes=num_classes, batch_proxies=batch_proxies)
+            feats, targets, feats_gnn = self.predict_batchwise(
+                model,
+                dataloader,
+                model_gnn=model_gnn,
+                num_classes=num_classes,
+                batch_proxies=batch_proxies,
+                kclosest=kclosest
+            )
 
         if tsne:
             self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_final.svg'))
@@ -89,7 +107,7 @@ class Evaluator():
             model_gnn.train(gnn_is_training)
         return recalls, nmi
 
-    def predict_batchwise(self, model, dataloader, model_gnn=None, num_classes=None, batch_proxies=False):
+    def predict_batchwise(self, model, dataloader, model_gnn=None, num_classes=None, batch_proxies=False, kclosest=12):
         fc7s, targets = [], []
         feats_gnn = []
         with torch.no_grad():
@@ -106,7 +124,7 @@ class Evaluator():
                         else:
                             proxy_idx = None
                         torch.use_deterministic_algorithms(False)
-                        preds_gnn, embeds_gnn = model_gnn(fc7, proxy_idx=proxy_idx)
+                        preds_gnn, embeds_gnn = model_gnn(fc7, true_proxy=y, proxy_idx=proxy_idx, kclosest=kclosest)
                         torch.use_deterministic_algorithms(True)
                         feats_gnn.append(F.normalize(embeds_gnn, p=2, dim=1).cpu())
 
@@ -175,19 +193,13 @@ class Evaluator():
         fig.savefig(path)
 
     def get_proxies_to_class_avg(self, feats, proxies, targets, num_classes):
-        proxy_to_class_distances = [[[] for c in range(num_classes)] for p in range(proxies.shape[0])]
+        dist = (feats[:, None, :] - proxies[None, :, :]) ** 2 # (N, 1, D) - (1, P, D)
+        dist = dist.sum(dim=2) # (N, P)
+        dist = torch.sqrt(dist)
 
-        for p in range(proxies.shape[0]):
-            proxy = proxies[p]
-            for c in range(num_classes):
-                samples = feats[targets == (c + num_classes)]
-                for s in range(samples.shape[0]):
-                    d = torch.linalg.norm(proxy - samples[s])
-                    proxy_to_class_distances[p][c].append(d)
-
-        proxies_to_avg = torch.zeros((proxies.shape[0], num_classes))
-        for p in range(proxies.shape[0]):
-            for c in range(num_classes):
-                proxies_to_avg[p, c] = torch.tensor(proxy_to_class_distances[p][c]).mean().item()
-
-        return proxies_to_avg
+        targets = targets - num_classes
+        res = torch.zeros((num_classes, proxies.shape[0]))
+        for cls in range(num_classes):
+            res[cls] = dist[targets == cls].mean(dim=0)
+        
+        return res # (C, P)

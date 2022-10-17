@@ -407,7 +407,13 @@ class Trainer():
                 else:
                     proxy_idx = None
                 torch.use_deterministic_algorithms(False)
-                preds_gnn, embeds_gnn, preds_proxies, embeds_proxies = gnn_model(embeddings, return_proxies=True, proxy_idx=proxy_idx)
+                preds_gnn, embeds_gnn, preds_proxies, embeds_proxies = gnn_model(
+                    embeddings,
+                    true_proxy=torch.cat((y_lb, y_ulb_w, y_ulb_w)),
+                    return_proxies=True,
+                    proxy_idx=proxy_idx,
+                    kclosest=self.config['training']['num_classes_iter']
+                )
                 torch.use_deterministic_algorithms(True)
 
                 preds_gnn_lb = preds_gnn[:x_lb.shape[0]]
@@ -618,7 +624,8 @@ class Trainer():
                 tsne=True,
                 model_gnn=model_gnn,
                 plot_dir=plots_dir,
-                batch_proxies=self.config['gnn']['batch_proxies']
+                batch_proxies=self.config['gnn']['batch_proxies'],
+                kclosest=self.config['training']['num_classes_iter']
             )
             return recalls, nmi
 
