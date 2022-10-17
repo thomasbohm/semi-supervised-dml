@@ -124,7 +124,7 @@ class Evaluator():
                         else:
                             proxy_idx = None
                         torch.use_deterministic_algorithms(False)
-                        preds_gnn, embeds_gnn = model_gnn(fc7, true_proxy=y, proxy_idx=proxy_idx, kclosest=kclosest)
+                        preds_gnn, embeds_gnn = model_gnn(fc7, true_proxy=(y - num_classes), proxy_idx=proxy_idx, kclosest=kclosest)
                         torch.use_deterministic_algorithms(True)
                         feats_gnn.append(F.normalize(embeds_gnn, p=2, dim=1).cpu())
 
