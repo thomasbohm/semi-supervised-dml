@@ -220,6 +220,15 @@ class Trainer():
                 plots_dir = osp.join(self.results_dir, 'plots')
                 os.mkdir(plots_dir)
                 self.test_run(resnet, dl_ev, plots_dir, gnn)
+                if gnn and dl_tr_lb and dl_tr_ulb:
+                    self.evaluator.train_plots(
+                        resnet,
+                        gnn,
+                        dl_tr_lb,
+                        dl_tr_ulb,
+                        self.config['dataset']['train_classes'],
+                        plots_dir
+                    )
 
         if hyper_search:
             self.logger.info(f'Best Run: {best_run}')
@@ -409,10 +418,10 @@ class Trainer():
                 torch.use_deterministic_algorithms(False)
                 preds_gnn, embeds_gnn, preds_proxies, embeds_proxies = gnn_model(
                     embeddings,
-                    true_proxy=torch.cat((y_lb, y_ulb_w, y_ulb_w)),
+                    #true_proxy=torch.cat((y_lb, y_ulb_w, y_ulb_w)),
                     return_proxies=True,
                     proxy_idx=proxy_idx,
-                    kclosest=self.config['training']['num_classes_iter']
+                    #kclosest=self.config['training']['num_classes_iter']
                 )
                 torch.use_deterministic_algorithms(True)
 
@@ -622,10 +631,7 @@ class Trainer():
                 dataroot=self.config['dataset']['name'],
                 num_classes=self.config['dataset']['train_classes'],
                 tsne=True,
-                model_gnn=model_gnn,
-                plot_dir=plots_dir,
-                batch_proxies=self.config['gnn']['batch_proxies'],
-                kclosest=self.config['training']['num_classes_iter']
+                plot_dir=plots_dir
             )
             return recalls, nmi
 

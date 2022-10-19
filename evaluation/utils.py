@@ -32,55 +32,14 @@ class Evaluator():
         num_classes,
         tsne=False,
         plot_dir='',
-        model_gnn=None,
-        batch_proxies=False,
-        kclosest=12
     ) -> Tuple[List[float], float]:
         model_is_training = model.training
         model.eval()
-        gnn_is_training = False
-        if model_gnn:
-            gnn_is_training = model_gnn.training
-            model_gnn.eval()
 
-        if not model_gnn:
-            feats, targets, feats_gnn = self.predict_batchwise(model, dataloader)
-        else:
-            feats, targets, feats_gnn = self.predict_batchwise(
-                model,
-                dataloader,
-                model_gnn=model_gnn,
-                num_classes=num_classes,
-                batch_proxies=batch_proxies,
-                kclosest=kclosest
-            )
+        feats, targets = self.predict_batchwise(model, dataloader)
 
         if tsne:
-            self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_final.svg'))
-        
-        if model_gnn and feats_gnn is not None:
-            proxies = F.normalize(model_gnn.proxies, p=2, dim=1).cpu()
-            num_proxies = proxies.shape[0]
-            self.create_tsne_plot_gnn(
-                torch.cat([proxies, feats_gnn]),
-                targets,
-                osp.join(plot_dir, 'tsne_gnn.svg'),
-                num_proxies=num_proxies
-            )
-            self.create_distance_plot_gnn(
-                feats_gnn,
-                targets,
-                proxies,
-                num_classes,
-                osp.join(plot_dir, 'dist_gnn.svg')
-            )
-            np.savez(osp.join(
-                plot_dir, 'data_gnn.npz'),
-                feats_resnet=feats.cpu().detach().numpy(),
-                feats_gnn=feats_gnn.cpu().detach().numpy(),
-                targets=targets.cpu().detach().numpy(),
-                proxies=model_gnn.proxies.cpu().detach().numpy()
-            )
+            self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_backbone.svg'))
 
         recalls: List[float] = []
         if dataroot != 'SOP':
@@ -103,47 +62,98 @@ class Evaluator():
             nmi = -1.0
 
         model.train(model_is_training)
-        if model_gnn:
-            model_gnn.train(gnn_is_training)
         return recalls, nmi
-
-    def predict_batchwise(self, model, dataloader, model_gnn=None, num_classes=None, batch_proxies=False, kclosest=12):
+    
+    @torch.no_grad()
+    def train_plots(self, backbone, gnn, dl_tr_lb, dl_tr_ulb, num_classes, plot_dir):
+        x_lb, x_ulb_w, x_ulb_s, y = self.predict_batchwise_train(backbone, gnn, dl_tr_lb, dl_tr_ulb)
+        x = torch.cat((x_lb, x_ulb_w, x_ulb_s))
+        proxies = F.normalize(gnn.proxies, p=2, dim=1).cpu()
+        
+        num_proxies = proxies.shape[0]
+        self.create_tsne_plot_gnn(
+            torch.cat([proxies, x]),
+            y,
+            osp.join(plot_dir, 'tsne_gnn.svg'),
+            num_proxies=num_proxies
+        )
+        self.create_distance_plot_gnn(
+            x,
+            y,
+            proxies,
+            num_classes,
+            osp.join(plot_dir, 'dist_gnn.svg')
+        )
+    
+    @torch.no_grad()
+    def predict_batchwise(self, model, dataloader):
         fc7s, targets = [], []
-        feats_gnn = []
-        with torch.no_grad():
-            for x, y, p in dataloader:
-                x = x.to(self.device)
-                try:
-                    preds, fc7 = model(x, output_option='norm', val=True)
-                    fc7s.append(F.normalize(fc7, p=2, dim=1).cpu())
-                    targets.append(y)
+        for x, y, p in dataloader:
+            x = x.to(self.device)
+            try:
+                preds, embeds = model(x, output_option='norm', val=True)
+                fc7s.append(F.normalize(embeds, p=2, dim=1).cpu())
+                targets.append(y)
 
-                    if model_gnn and num_classes is not None:
-                        if batch_proxies:
-                            proxy_idx = y.unique() - num_classes
-                        else:
-                            proxy_idx = None
-                        torch.use_deterministic_algorithms(False)
-                        preds_gnn, embeds_gnn = model_gnn(fc7, true_proxy=(y - num_classes), proxy_idx=proxy_idx, kclosest=kclosest)
-                        torch.use_deterministic_algorithms(True)
-                        feats_gnn.append(F.normalize(embeds_gnn, p=2, dim=1).cpu())
+            except TypeError:
+                if torch.cuda.device_count() > 1:
+                    # Pass this error.
+                    # Happens if len(dset_eval) % batch_size is small
+                    # and multi-gpu training is used. The last batch probably
+                    # cannot be distributed onto all gpus.
+                    self.logger.info(f'Skipping batch of shape {x.shape}')
+                    pass
+                else:
+                    raise TypeError()
 
-                except TypeError:
-                    if torch.cuda.device_count() > 1:
-                        # Pass this error.
-                        # Happens if len(dset_eval) % batch_size is small
-                        # and multi-gpu training is used. The last batch probably
-                        # cannot be distributed onto all gpus.
-                        self.logger.info(f'Skipping batch of shape {x.shape}')
-                        pass
-                    else:
-                        raise TypeError()
-        if not model_gnn:
-            fc7, targets = torch.cat(fc7s), torch.cat(targets)
-            return torch.squeeze(fc7), torch.squeeze(targets), None
-        else:
-            fc7, targets, feats_gnn = torch.cat(fc7s), torch.cat(targets), torch.cat(feats_gnn)
-            return torch.squeeze(fc7), torch.squeeze(targets), torch.squeeze(feats_gnn)
+        fc7, targets = torch.cat(fc7s), torch.cat(targets)
+        return torch.squeeze(fc7), torch.squeeze(targets)
+
+
+    @torch.no_grad()
+    def predict_batchwise_train(self, backbone, gnn, dl_tr_lb, dl_tr_ulb):
+        backbone.eval()
+        gnn.eval()
+        
+        targets = []
+        feats_gnn_lb = []
+        feats_gnn_ulb_w = []
+        feats_gnn_ulb_s = []
+        for (x_lb, y_lb, p_lb), (x_ulb_w, x_ulb_s, y_ulb, p_ulb) in zip(dl_tr_lb, dl_tr_ulb):
+            x = torch.cat((x_lb, x_ulb_w, x_ulb_s)).to(self.device)
+            try:
+                _, embeds = backbone(x, output_option='norm', val=True)
+
+                torch.use_deterministic_algorithms(False)
+                _, embeds_gnn = gnn(embeds)
+                torch.use_deterministic_algorithms(True)
+                
+                embeds_gnn = F.normalize(embeds_gnn, p=2, dim=1).cpu()
+                embeds_gnn_lb = embeds_gnn[:x_lb.shape[0]]
+                embeds_gnn_ulb_w = embeds_gnn[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+                embeds_gnn_ulb_s = embeds_gnn[x_lb.shape[0] + x_ulb_w.shape[0]:]
+
+                feats_gnn_lb.append(embeds_gnn_lb)
+                feats_gnn_ulb_w.append(embeds_gnn_ulb_w)
+                feats_gnn_ulb_s.append(embeds_gnn_ulb_s)
+                targets.append(torch.cat(y_lb, y_ulb, y_ulb))
+
+            except TypeError:
+                if torch.cuda.device_count() > 1:
+                    # Pass this error.
+                    # Happens if len(dset_eval) % batch_size is small
+                    # and multi-gpu training is used. The last batch probably
+                    # cannot be distributed onto all gpus.
+                    self.logger.info(f'Skipping batch of shape {x.shape}')
+                    pass
+                else:
+                    raise TypeError()
+
+        targets = torch.squeeze(torch.cat(targets))
+        feats_gnn_lb = torch.squeeze(torch.cat(feats_gnn_lb))
+        feats_gnn_ulb_w = torch.squeeze(torch.cat(feats_gnn_ulb_w))
+        feats_gnn_ulb_s = torch.squeeze(torch.cat(feats_gnn_ulb_s))
+        return feats_gnn_lb, feats_gnn_ulb_w, feats_gnn_ulb_s, targets
 
     def get_colors(self, Y: torch.Tensor):
         assert len(Y.shape) == 1
@@ -191,6 +201,7 @@ class Evaluator():
         cbar = ax.figure.colorbar(im, ax=ax)
         fig.set_size_inches(11.69,8.27)
         fig.savefig(path)
+        self.logger.info(f'Saved plot to {path}')
 
     def get_proxies_to_class_avg(self, feats, proxies, targets, num_classes):
         dist = (feats[:, None, :] - proxies[None, :, :]) ** 2 # (N, 1, D) - (1, P, D)
