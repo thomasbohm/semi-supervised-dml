@@ -11,8 +11,7 @@ from .recall import calc_recall_at_k, assign_by_euclidian_at_k
 
 
 class Evaluator():
-    def __init__(self, device, cat=0, logging_level=logging.INFO):
-        self.cat = cat
+    def __init__(self, device, logging_level=logging.INFO):
         self.device = device
 
         self.logger = logging.getLogger('Evaluator')
@@ -24,6 +23,7 @@ class Evaluator():
 
         self.tsne_model = TSNE(n_components=2, learning_rate='auto', random_state=0, init='pca')
 
+    @torch.no_grad()
     def evaluate(
         self,
         model,
@@ -36,12 +36,11 @@ class Evaluator():
         model_is_training = model.training
         model.eval()
 
-        feats, targets = self.predict_batchwise(model, dataloader)
+        feats, targets = self._predict_batchwise(model, dataloader)
 
         if tsne:
-            self.create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_backbone.svg'))
+            self._create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_backbone.svg'))
 
-        recalls: List[float] = []
         if dataroot != 'SOP':
             Y, targets = assign_by_euclidian_at_k(feats, targets, 8)
             which_nearest_neighbors = [1, 2, 4, 8]
@@ -49,14 +48,14 @@ class Evaluator():
             Y, targets = assign_by_euclidian_at_k(feats, targets, 1000)
             which_nearest_neighbors = [1, 10, 100, 1000]
 
+        recalls: List[float] = []
         for k in which_nearest_neighbors:
             r_at_k = calc_recall_at_k(targets, Y, k)
             recalls.append(r_at_k)
             self.logger.info("R@{}: {:.3f}".format(k, 100 * r_at_k))
 
         if dataroot != 'SOP':
-            nmi = calc_normalized_mutual_information(
-                targets, cluster_by_kmeans(feats, num_classes))
+            nmi = calc_normalized_mutual_information(targets, cluster_by_kmeans(feats, num_classes))
             self.logger.info("NMI: {:.3f}".format(nmi * 100))
         else:
             nmi = -1.0
@@ -65,19 +64,19 @@ class Evaluator():
         return recalls, nmi
     
     @torch.no_grad()
-    def train_plots(self, backbone, gnn, dl_tr_lb, dl_tr_ulb, num_classes, plot_dir):
-        x_lb, x_ulb_w, x_ulb_s, y = self.predict_batchwise_train(backbone, gnn, dl_tr_lb, dl_tr_ulb)
+    def create_train_plots(self, backbone, gnn, dl_tr_lb, dl_tr_ulb, num_classes, plot_dir):
+        x_lb, x_ulb_w, x_ulb_s, y = self._predict_batchwise_train(backbone, gnn, dl_tr_lb, dl_tr_ulb)
         x = torch.cat((x_lb, x_ulb_w, x_ulb_s))
         proxies = F.normalize(gnn.proxies, p=2, dim=1).cpu()
         
         num_proxies = proxies.shape[0]
-        self.create_tsne_plot_gnn(
+        self._create_tsne_plot_gnn(
             torch.cat([proxies, x]),
             y,
             osp.join(plot_dir, 'tsne_gnn.svg'),
             num_proxies=num_proxies
         )
-        self.create_distance_plot_gnn(
+        self._create_distance_plot_gnn(
             x,
             y,
             proxies,
@@ -86,7 +85,7 @@ class Evaluator():
         )
     
     @torch.no_grad()
-    def predict_batchwise(self, model, dataloader):
+    def _predict_batchwise(self, model, dataloader):
         fc7s, targets = [], []
         for x, y, p in dataloader:
             x = x.to(self.device)
@@ -111,7 +110,7 @@ class Evaluator():
 
 
     @torch.no_grad()
-    def predict_batchwise_train(self, backbone, gnn, dl_tr_lb, dl_tr_ulb):
+    def _predict_batchwise_train(self, backbone, gnn, dl_tr_lb, dl_tr_ulb):
         backbone.eval()
         gnn.eval()
         
@@ -155,7 +154,7 @@ class Evaluator():
         feats_gnn_ulb_s = torch.squeeze(torch.cat(feats_gnn_ulb_s))
         return feats_gnn_lb, feats_gnn_ulb_w, feats_gnn_ulb_s, targets
 
-    def get_colors(self, Y: torch.Tensor):
+    def _get_colors(self, Y: torch.Tensor):
         assert len(Y.shape) == 1
         colors = []
         color_map = {}
@@ -167,31 +166,31 @@ class Evaluator():
             colors.append(color_map[y])
         return colors
     
-    def create_tsne_plot(self, feats, targets, path):
+    def _create_tsne_plot(self, feats, targets, path):
         with torch.no_grad():
             self.logger.info('Creating tsne embeddings...')
             feats_tsne = self.tsne_model.fit_transform(feats.detach().cpu())
             fig, ax = plt.subplots()
-            ax.scatter(*feats_tsne.T, c=self.get_colors(targets), s=5, alpha=0.6, cmap='tab20')
+            ax.scatter(*feats_tsne.T, c=self._get_colors(targets), s=5, alpha=0.6, cmap='tab20')
             
             fig.set_size_inches(11.69,8.27)
             fig.savefig(path)
             self.logger.info(f'Saved plot to {path}')
     
-    def create_tsne_plot_gnn(self, feats, targets, path, num_proxies):
+    def _create_tsne_plot_gnn(self, feats, targets, path, num_proxies):
         with torch.no_grad():
             self.logger.info('Creating tsne gnn embeddings...')
             feats_tsne = self.tsne_model.fit_transform(feats.detach().cpu())
             fig, ax = plt.subplots()
-            ax.scatter(*feats_tsne[num_proxies:].T, c=self.get_colors(targets), s=5, alpha=0.6, cmap='tab20')
+            ax.scatter(*feats_tsne[num_proxies:].T, c=self._get_colors(targets), s=5, alpha=0.6, cmap='tab20')
             ax.scatter(*feats_tsne[:num_proxies].T, c=list(range(num_proxies)), s=50, alpha=1, marker='*', cmap='tab20')
 
             fig.set_size_inches(11.69,8.27)
             fig.savefig(path)
             self.logger.info(f'Saved plot to {path}')
     
-    def create_distance_plot_gnn(self, feats, targets, proxies, num_classes, path):
-        data = self.get_proxies_to_class_avg(feats, proxies, targets, num_classes)
+    def _create_distance_plot_gnn(self, feats, targets, proxies, num_classes, path):
+        data = self._get_proxies_to_class_avg(feats, proxies, targets, num_classes)
 
         fig, ax = plt.subplots()
         im = ax.imshow(data)
@@ -203,12 +202,11 @@ class Evaluator():
         fig.savefig(path)
         self.logger.info(f'Saved plot to {path}')
 
-    def get_proxies_to_class_avg(self, feats, proxies, targets, num_classes):
+    def _get_proxies_to_class_avg(self, feats, proxies, targets, num_classes):
         dist = (feats[:, None, :] - proxies[None, :, :]) ** 2 # (N, 1, D) - (1, P, D)
         dist = dist.sum(dim=2) # (N, P)
         dist = torch.sqrt(dist)
 
-        targets = targets - num_classes
         res = torch.zeros((num_classes, proxies.shape[0]))
         for cls in range(num_classes):
             res[cls] = dist[targets == cls].mean(dim=0)

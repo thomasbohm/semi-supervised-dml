@@ -221,7 +221,7 @@ class Trainer():
                 os.mkdir(plots_dir)
                 self.test_run(resnet, dl_ev, plots_dir, gnn)
                 if gnn and dl_tr_lb and dl_tr_ulb:
-                    self.evaluator.train_plots(
+                    self.evaluator.create_train_plots(
                         resnet,
                         gnn,
                         dl_tr_lb,
@@ -352,9 +352,9 @@ class Trainer():
                 loss_gnn = gnn_loss_fn(preds, y).mean()
                 loss += loss_gnn
 
-            if plot_tsne and epoch % 10 == 0 and first_batch:
-                path = osp.join(self.results_dir, f'tsne_train_lb_{epoch}.svg')
-                self.evaluator.create_tsne_plot(embeddings, y, path)
+            #if plot_tsne and epoch % 10 == 0 and first_batch:
+                #path = osp.join(self.results_dir, f'tsne_train_lb_{epoch}.svg')
+                #self.evaluator.create_tsne_plot(embeddings, y, path)
                 # self.logger.info(f'Counter(y_lb): {Counter(y.tolist()).most_common()}')
 
             if torch.isnan(loss):
