@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader, RandomSampler
 
 from dataset.m_per_class_sampler import MPerClassSampler
 from dataset.ssl_dataset import create_datasets, get_transforms
-from evaluation.utils import Evaluator
+from evaluation.evaluate import Evaluator
 from net.gnn import GNNModel
 from net.load_net import load_resnet50
 from RAdam import RAdam
