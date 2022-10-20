@@ -64,8 +64,8 @@ class Evaluator():
         return recalls, nmi
     
     @torch.no_grad()
-    def create_train_plots(self, backbone, gnn, dl_tr_lb, dl_tr_ulb, num_classes, plot_dir):
-        x_lb, x_ulb_w, x_ulb_s, y_lb, y_ulb = self._predict_batchwise_train(backbone, gnn, dl_tr_lb, dl_tr_ulb)
+    def create_train_plots(self, backbone, gnn, dl_tr_lb, dl_tr_ulb, num_classes, plot_dir, kclosest):
+        x_lb, x_ulb_w, x_ulb_s, y_lb, y_ulb = self._predict_batchwise_gnn(backbone, gnn, dl_tr_lb, dl_tr_ulb, kclosest)
         proxies = F.normalize(gnn.proxies, p=2, dim=1).cpu()
         
         self._create_tsne_plot_gnn(
@@ -129,7 +129,7 @@ class Evaluator():
         fc7, targets = torch.cat(fc7s), torch.cat(targets)
         return torch.squeeze(fc7), torch.squeeze(targets)
 
-    def _predict_batchwise_train(self, backbone, gnn, dl_tr_lb, dl_tr_ulb):
+    def _predict_batchwise_gnn(self, backbone, gnn, dl_tr_lb, dl_tr_ulb, kclosest):
         backbone.eval()
         gnn.eval()
         
@@ -143,7 +143,7 @@ class Evaluator():
             _, embeds = backbone(x, output_option='norm', val=True)
 
             torch.use_deterministic_algorithms(False)
-            _, embeds_gnn = gnn(embeds)
+            _, embeds_gnn = gnn(embeds, kclosest=kclosest)
             torch.use_deterministic_algorithms(True)
             
             embeds_gnn = F.normalize(embeds_gnn, p=2, dim=1).cpu()
@@ -211,35 +211,32 @@ class Evaluator():
         ax.scatter(*x_ulb_w.T, c=y_ulb.tolist(), s=10, alpha=0.6, cmap='tab20', marker='^')
         ax.scatter(*x_ulb_s.T, c=y_ulb.tolist(), s=5, alpha=0.6, cmap='tab20', marker='s')
         ax.scatter(*x_lb.T, c=y_lb.tolist(), s=5, alpha=0.6, cmap='tab20', marker='.')
-        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*', edgecolors='red')
+        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*', edgecolors='red', linewidths=0.5)
 
         fig.set_size_inches(11.69,8.27)
         fig.savefig(path)
         self.logger.info(f'Saved plot to {path}')
 
         fig, ax = plt.subplots()
-        ax.scatter(*x_lb.T, c=y_lb.tolist(), s=5, alpha=0.6, cmap='tab20', marker='.')
-        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*', edgecolors='red')
+        ax.scatter(*x_lb.T, c=y_lb.tolist(), s=10, alpha=0.6, cmap='tab20', marker='.')
+        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*', edgecolors='red', linewidths=0.5)
         fig.set_size_inches(11.69,8.27)
-        path = path[:-4] + '_lb.svg'
-        fig.savefig(path)
-        self.logger.info(f'Saved plot to {path}')
+        fig.savefig(path[:-4] + '_lb.svg')
+        self.logger.info(f'Saved plot to {path[:-4] + "_lb.svg"}')
 
         fig, ax = plt.subplots()
         ax.scatter(*x_ulb_w.T, c=y_ulb.tolist(), s=10, alpha=0.6, cmap='tab20', marker='^')
-        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*', edgecolors='red')
+        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*', edgecolors='red', linewidths=0.5)
         fig.set_size_inches(11.69,8.27)
-        path = path[:-4] + '_ulb_w.svg'
-        fig.savefig(path)
-        self.logger.info(f'Saved plot to {path}')
+        fig.savefig(path[:-4] + '_ulb_w.svg')
+        self.logger.info(f'Saved plot to {path[:-4] + "_ulb_w.svg"}')
 
         fig, ax = plt.subplots()
-        ax.scatter(*x_ulb_s.T, c=y_ulb.tolist(), s=10, alpha=0.6, cmap='tab20', marker='^')
-        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*', edgecolors='red')
+        ax.scatter(*x_ulb_s.T, c=y_ulb.tolist(), s=10, alpha=0.6, cmap='tab20', marker='s')
+        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*', edgecolors='red', linewidths=0.5)
         fig.set_size_inches(11.69,8.27)
-        path = path[:-4] + '_ulb_s.svg'
-        fig.savefig(path)
-        self.logger.info(f'Saved plot to {path}')
+        fig.savefig(path[:-4] + '_ulb_s.svg')
+        self.logger.info(f'Saved plot to {path[:-4] + "_ulb_s.svg"}')
     
     def _create_distance_plot_gnn(self, feats, targets, proxies, num_classes, path):
         data = self._get_proxies_to_class_avg(feats, proxies, targets, num_classes)

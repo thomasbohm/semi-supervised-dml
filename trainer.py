@@ -227,7 +227,8 @@ class Trainer():
                         dl_tr_lb,
                         dl_tr_ulb,
                         self.config['dataset']['train_classes'],
-                        plots_dir
+                        plots_dir,
+                        kclosest = self.config['gnn']['kclosest_edges']
                     )
 
         if hyper_search:
@@ -413,12 +414,10 @@ class Trainer():
                 else:
                     proxy_idx = None
                 torch.use_deterministic_algorithms(False)
-                preds_gnn, embeds_gnn, preds_proxies, embeds_proxies = gnn_model(
+                preds_gnn, embeds_gnn = gnn_model(
                     embeddings,
-                    #true_proxy=torch.cat((y_lb, y_ulb_w, y_ulb_w)),
-                    return_proxies=True,
                     proxy_idx=proxy_idx,
-                    #kclosest=self.config['training']['num_classes_iter']
+                    kclosest=self.config['gnn']['kclosest_edges']
                 )
                 torch.use_deterministic_algorithms(True)
 
@@ -447,10 +446,10 @@ class Trainer():
                     loss_proxies = F.mse_loss(embeds, proxies, reduction='none') * mask_gnn.unsqueeze(1)
                     loss_proxies = loss_proxies.mean()
                     loss += self.config['training']['loss_proxy_weight'] * loss_proxies
-                elif self.config['training']['loss_proxy'] == 'ce':
-                    classes = y_gnn.unique()
-                    loss_proxies = F.cross_entropy(preds_proxies[classes], classes)
-                    loss += loss_proxies
+                #elif self.config['training']['loss_proxy'] == 'ce':
+                    #classes = y_gnn.unique()
+                    #loss_proxies = F.cross_entropy(preds_proxies[classes], classes)
+                    #loss += loss_proxies
 
                 if first_batch:
                     self.logger.info(f'ResNet lb : {loss_lb:.2f}')

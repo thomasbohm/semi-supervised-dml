@@ -17,6 +17,7 @@ gnn:
   gnn_fc: False
   reduction_layer: False
   batch_proxies: False
+  kclosest_edges: 0
 
 dataset:
   path: "data/Stanford_Online_Products"
