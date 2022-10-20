@@ -120,33 +120,33 @@ class Evaluator():
         feats_gnn_ulb_s = []
         for (x_lb, y_lb, p_lb), (x_ulb_w, x_ulb_s, y_ulb, p_ulb) in zip(dl_tr_lb, dl_tr_ulb):
             x = torch.cat((x_lb, x_ulb_w, x_ulb_s)).to(self.device)
-            try:
-                _, embeds = backbone(x, output_option='norm', val=True)
+            #try:
+            _, embeds = backbone(x, output_option='norm', val=True)
 
-                torch.use_deterministic_algorithms(False)
-                _, embeds_gnn = gnn(embeds)
-                torch.use_deterministic_algorithms(True)
-                
-                embeds_gnn = F.normalize(embeds_gnn, p=2, dim=1).cpu()
-                embeds_gnn_lb = embeds_gnn[:x_lb.shape[0]]
-                embeds_gnn_ulb_w = embeds_gnn[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
-                embeds_gnn_ulb_s = embeds_gnn[x_lb.shape[0] + x_ulb_w.shape[0]:]
+            torch.use_deterministic_algorithms(False)
+            _, embeds_gnn = gnn(embeds)
+            torch.use_deterministic_algorithms(True)
+            
+            embeds_gnn = F.normalize(embeds_gnn, p=2, dim=1).cpu()
+            embeds_gnn_lb = embeds_gnn[:x_lb.shape[0]]
+            embeds_gnn_ulb_w = embeds_gnn[x_lb.shape[0]:x_lb.shape[0] + x_ulb_w.shape[0]]
+            embeds_gnn_ulb_s = embeds_gnn[x_lb.shape[0] + x_ulb_w.shape[0]:]
 
-                feats_gnn_lb.append(embeds_gnn_lb)
-                feats_gnn_ulb_w.append(embeds_gnn_ulb_w)
-                feats_gnn_ulb_s.append(embeds_gnn_ulb_s)
-                targets.append(torch.cat(y_lb, y_ulb, y_ulb))
+            feats_gnn_lb.append(embeds_gnn_lb)
+            feats_gnn_ulb_w.append(embeds_gnn_ulb_w)
+            feats_gnn_ulb_s.append(embeds_gnn_ulb_s)
+            targets.append(torch.cat(y_lb, y_ulb, y_ulb))
 
-            except TypeError:
-                if torch.cuda.device_count() > 1:
+            #except TypeError:
+            #    if torch.cuda.device_count() > 1:
                     # Pass this error.
                     # Happens if len(dset_eval) % batch_size is small
                     # and multi-gpu training is used. The last batch probably
                     # cannot be distributed onto all gpus.
-                    self.logger.info(f'Skipping batch of shape {x.shape}')
-                    pass
-                else:
-                    raise TypeError()
+            #        self.logger.info(f'Skipping batch of shape {x.shape}')
+            #        pass
+            #    else:
+            #        raise TypeError()
 
         targets = torch.squeeze(torch.cat(targets))
         feats_gnn_lb = torch.squeeze(torch.cat(feats_gnn_lb))
