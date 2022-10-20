@@ -65,35 +65,36 @@ class Evaluator():
     
     @torch.no_grad()
     def create_train_plots(self, backbone, gnn, dl_tr_lb, dl_tr_ulb, num_classes, plot_dir):
-        x_lb, x_ulb_w, x_ulb_s, y = self._predict_batchwise_train(backbone, gnn, dl_tr_lb, dl_tr_ulb)
+        x_lb, x_ulb_w, x_ulb_s, y_lb, y_ulb = self._predict_batchwise_train(backbone, gnn, dl_tr_lb, dl_tr_ulb)
         x = torch.cat((x_lb, x_ulb_w, x_ulb_s))
         proxies = F.normalize(gnn.proxies, p=2, dim=1).cpu()
         
         self._create_tsne_plot_gnn(
-            torch.cat([proxies, x]),
-            y,
-            osp.join(plot_dir, 'tsne_gnn.svg'),
-            num_p=proxies.shape[0],
-            num_lb=x_lb.shape[0],
-            num_ulb_w=x_ulb_w.shape[0]
+            x_lb,
+            x_ulb_w,
+            x_ulb_s,
+            y_lb,
+            y_ulb,
+            proxies,
+            osp.join(plot_dir, 'tsne_gnn.svg')
         )
         self._create_distance_plot_gnn(
             x_lb,
-            y[:x_lb.shape[0]],
+            y_lb,
             proxies,
             num_classes,
             osp.join(plot_dir, 'dist_lb.svg')
         )
         self._create_distance_plot_gnn(
             x_ulb_w,
-            y[x_lb.shape[0]:x_lb.shape[0]+x_ulb_w.shape[0]],
+            y_ulb,
             proxies,
             num_classes,
             osp.join(plot_dir, 'dist_ulb_w.svg')
         )
         self._create_distance_plot_gnn(
             x_ulb_s,
-            y[x_lb.shape[0]+x_ulb_w.shape[0]:],
+            y_ulb,
             proxies,
             num_classes,
             osp.join(plot_dir, 'dist_ulb_s.svg')
@@ -128,13 +129,13 @@ class Evaluator():
         backbone.eval()
         gnn.eval()
         
-        targets = []
         feats_gnn_lb = []
         feats_gnn_ulb_w = []
         feats_gnn_ulb_s = []
+        targets_lb = []
+        targets_ulb = []
         for (x_lb, y_lb, p_lb), (x_ulb_w, x_ulb_s, y_ulb, p_ulb) in zip(dl_tr_lb, dl_tr_ulb):
             x = torch.cat((x_lb, x_ulb_w, x_ulb_s)).to(self.device)
-            #try:
             _, embeds = backbone(x, output_option='norm', val=True)
 
             torch.use_deterministic_algorithms(False)
@@ -149,24 +150,15 @@ class Evaluator():
             feats_gnn_lb.append(embeds_gnn_lb)
             feats_gnn_ulb_w.append(embeds_gnn_ulb_w)
             feats_gnn_ulb_s.append(embeds_gnn_ulb_s)
-            targets.append(torch.cat((y_lb, y_ulb, y_ulb)))
+            targets_lb.append(y_lb)
+            targets_ulb.append(y_ulb)
 
-            #except TypeError:
-            #    if torch.cuda.device_count() > 1:
-                    # Pass this error.
-                    # Happens if len(dset_eval) % batch_size is small
-                    # and multi-gpu training is used. The last batch probably
-                    # cannot be distributed onto all gpus.
-            #        self.logger.info(f'Skipping batch of shape {x.shape}')
-            #        pass
-            #    else:
-            #        raise TypeError()
-
-        targets = torch.squeeze(torch.cat(targets))
         feats_gnn_lb = torch.squeeze(torch.cat(feats_gnn_lb))
         feats_gnn_ulb_w = torch.squeeze(torch.cat(feats_gnn_ulb_w))
         feats_gnn_ulb_s = torch.squeeze(torch.cat(feats_gnn_ulb_s))
-        return feats_gnn_lb, feats_gnn_ulb_w, feats_gnn_ulb_s, targets
+        targets_lb = torch.squeeze(torch.cat(targets_lb))
+        targets_ulb = torch.squeeze(torch.cat(targets_ulb))
+        return feats_gnn_lb, feats_gnn_ulb_w, feats_gnn_ulb_s, targets_lb, targets_ulb
 
     def _get_colors(self, Y: torch.Tensor):
         assert len(Y.shape) == 1
@@ -191,22 +183,31 @@ class Evaluator():
             fig.savefig(path)
             self.logger.info(f'Saved plot to {path}')
     
-    def _create_tsne_plot_gnn(self, feats, targets, path, num_p, num_lb, num_ulb_w):
+    def _create_tsne_plot_gnn(
+        self,
+        x_lb,
+        x_ulb_w,
+        x_ulb_s,
+        y_lb,
+        y_ulb,
+        proxies,
+        path
+    ):
         self.logger.info('Creating tsne gnn embeddings...')
-        feats_tsne = self.tsne_model.fit_transform(feats.detach().cpu())
+        all_feats = torch.cat((proxies, x_lb, x_ulb_w, x_ulb_s))
+        feats_tsne = self.tsne_model.fit_transform(all_feats.detach().cpu())
         fig, ax = plt.subplots()
 
+        num_p, num_lb, num_ulb_w = proxies.shape[0], x_lb.shape[0], x_ulb_w.shape[0]
         proxies = feats_tsne[:num_p]
         x_lb    = feats_tsne[num_p:num_p+num_lb]
         x_ulb_w = feats_tsne[num_p+num_lb:num_p+num_lb+num_ulb_w]
         x_ulb_s = feats_tsne[num_p+num_lb+num_ulb_w:]
 
-        y_lb    = targets[num_p:num_p+num_lb]
-        y_ulb_w = targets[num_p+num_lb:num_p+num_lb+num_ulb_w]
-        y_ulb_s = targets[num_p+num_lb+num_ulb_w:]
+        self.logger.info(f'{x_lb.shape}, {x_ulb_w.shape}, {x_ulb_s.shape}, {proxies.shape}, {y_lb.shape}, {y_ulb.shape}')
 
-        ax.scatter(*x_ulb_w.T, c=y_ulb_w.tolist(), s=5, alpha=0.6, cmap='tab20', marker='^')
-        ax.scatter(*x_ulb_s.T, c=y_ulb_s.tolist(), s=5, alpha=0.6, cmap='tab20', marker='s')
+        ax.scatter(*x_ulb_w.T, c=y_ulb.tolist(), s=5, alpha=0.6, cmap='tab20', marker='^')
+        ax.scatter(*x_ulb_s.T, c=y_ulb.tolist(), s=5, alpha=0.6, cmap='tab20', marker='s')
         ax.scatter(*x_lb.T, c=y_lb.tolist(), s=5, alpha=0.6, cmap='tab20', marker='.')
         ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*')
 
