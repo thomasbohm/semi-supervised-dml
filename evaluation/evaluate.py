@@ -201,10 +201,10 @@ class Evaluator():
         x_ulb_w = feats_tsne[num_p+num_lb:num_p+num_lb+num_ulb_w]
         x_ulb_s = feats_tsne[num_p+num_lb+num_ulb_w:]
 
-        ax.scatter(*x_ulb_w.T, c=y_ulb.tolist(), s=5, alpha=0.6, cmap='tab20', marker='^')
+        ax.scatter(*x_ulb_w.T, c=y_ulb.tolist(), s=10, alpha=0.6, cmap='tab20', marker='^')
         ax.scatter(*x_ulb_s.T, c=y_ulb.tolist(), s=5, alpha=0.6, cmap='tab20', marker='s')
         ax.scatter(*x_lb.T, c=y_lb.tolist(), s=5, alpha=0.6, cmap='tab20', marker='.')
-        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*')
+        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*', edgecolors='red')
 
         fig.set_size_inches(11.69,8.27)
         fig.savefig(path)
