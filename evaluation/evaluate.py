@@ -209,6 +209,30 @@ class Evaluator():
         fig.set_size_inches(11.69,8.27)
         fig.savefig(path)
         self.logger.info(f'Saved plot to {path}')
+
+        fig, ax = plt.subplots()
+        ax.scatter(*x_lb.T, c=y_lb.tolist(), s=5, alpha=0.6, cmap='tab20', marker='.')
+        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*', edgecolors='red')
+        fig.set_size_inches(11.69,8.27)
+        path = path[:-4] + '_lb.svg'
+        fig.savefig(path)
+        self.logger.info(f'Saved plot to {path}')
+
+        fig, ax = plt.subplots()
+        ax.scatter(*x_ulb_w.T, c=y_ulb.tolist(), s=10, alpha=0.6, cmap='tab20', marker='^')
+        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*', edgecolors='red')
+        fig.set_size_inches(11.69,8.27)
+        path = path[:-4] + '_ulb_w.svg'
+        fig.savefig(path)
+        self.logger.info(f'Saved plot to {path}')
+
+        fig, ax = plt.subplots()
+        ax.scatter(*x_ulb_s.T, c=y_ulb.tolist(), s=10, alpha=0.6, cmap='tab20', marker='^')
+        ax.scatter(*proxies.T, c=list(range(num_p)), s=50, alpha=1, cmap='tab20', marker='*', edgecolors='red')
+        fig.set_size_inches(11.69,8.27)
+        path = path[:-4] + '_ulb_s.svg'
+        fig.savefig(path)
+        self.logger.info(f'Saved plot to {path}')
     
     def _create_distance_plot_gnn(self, feats, targets, proxies, num_classes, path):
         data = self._get_proxies_to_class_avg(feats, proxies, targets, num_classes)
