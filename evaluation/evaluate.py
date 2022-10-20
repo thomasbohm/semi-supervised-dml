@@ -100,7 +100,6 @@ class Evaluator():
             osp.join(plot_dir, 'dist_ulb_s.svg')
         )
     
-    @torch.no_grad()
     def _predict_batchwise(self, model, dataloader):
         fc7s, targets = [], []
         for x, y, p in dataloader:
@@ -124,7 +123,6 @@ class Evaluator():
         fc7, targets = torch.cat(fc7s), torch.cat(targets)
         return torch.squeeze(fc7), torch.squeeze(targets)
 
-    @torch.no_grad()
     def _predict_batchwise_train(self, backbone, gnn, dl_tr_lb, dl_tr_ulb):
         backbone.eval()
         gnn.eval()
@@ -203,8 +201,6 @@ class Evaluator():
         x_lb    = feats_tsne[num_p:num_p+num_lb]
         x_ulb_w = feats_tsne[num_p+num_lb:num_p+num_lb+num_ulb_w]
         x_ulb_s = feats_tsne[num_p+num_lb+num_ulb_w:]
-
-        self.logger.info(f'{x_lb.shape}, {x_ulb_w.shape}, {x_ulb_s.shape}, {proxies.shape}, {y_lb.shape}, {y_ulb.shape}')
 
         ax.scatter(*x_ulb_w.T, c=y_ulb.tolist(), s=5, alpha=0.6, cmap='tab20', marker='^')
         ax.scatter(*x_ulb_s.T, c=y_ulb.tolist(), s=5, alpha=0.6, cmap='tab20', marker='s')
