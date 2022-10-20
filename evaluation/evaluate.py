@@ -66,7 +66,6 @@ class Evaluator():
     @torch.no_grad()
     def create_train_plots(self, backbone, gnn, dl_tr_lb, dl_tr_ulb, num_classes, plot_dir):
         x_lb, x_ulb_w, x_ulb_s, y_lb, y_ulb = self._predict_batchwise_train(backbone, gnn, dl_tr_lb, dl_tr_ulb)
-        x = torch.cat((x_lb, x_ulb_w, x_ulb_s))
         proxies = F.normalize(gnn.proxies, p=2, dim=1).cpu()
         
         self._create_tsne_plot_gnn(

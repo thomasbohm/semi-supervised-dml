@@ -69,15 +69,19 @@ class GNNModel(nn.Module):
         self.device = device
 
 
-    def forward(self, x, proxy_idx=None, return_proxies=False, kclosest=100):
+    def forward(self, x, proxy_idx=None, return_proxies=False, kclosest=0):
         if proxy_idx is not None:
             proxies = self.proxies[proxy_idx]
         else:
             proxies = self.proxies
         num_proxies = proxies.shape[0]
         
-        # connect every sample with k closest proxies
-        edge_index = self.get_edge_index(x, proxies, kclosest).to(self.device)
+        if kclosest > 0:
+            # connect every sample with k closest proxies
+            edge_index = self.get_edge_index(x, proxies, kclosest).to(self.device)
+        else:
+            # connect every sample with every proxies
+            edge_index = self.get_fully_connected_edge_index(x, proxies.shape[0]).to(self.device)
         
         # feats = proxies + x
         feats = torch.cat([proxies, x])
@@ -112,6 +116,16 @@ class GNNModel(nn.Module):
             #if true_proxy[i] not in closest_idx[i]:
             #    edges.append([i, true_proxy[i]])
             #    edges.append([true_proxy[i], i])
+        
+        edge_index = torch.tensor(edges, dtype=torch.long).t()
+        return edge_index
+    
+    def get_fully_connected_edge_index(self, nodes, num_proxies):
+        edges = []
+        for i in range(num_proxies, num_proxies + nodes.shape[0]):
+            for p in range(num_proxies):
+                edges.append([p, i])
+                edges.append([i, p])
         
         edge_index = torch.tensor(edges, dtype=torch.long).t()
         return edge_index
