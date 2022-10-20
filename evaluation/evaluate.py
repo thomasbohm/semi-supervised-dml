@@ -78,11 +78,25 @@ class Evaluator():
             num_ulb_w=x_ulb_w.shape[0]
         )
         self._create_distance_plot_gnn(
-            x,
-            y,
+            x_lb,
+            y[:x_lb.shape[0]],
             proxies,
             num_classes,
-            osp.join(plot_dir, 'dist_gnn.svg')
+            osp.join(plot_dir, 'dist_lb.svg')
+        )
+        self._create_distance_plot_gnn(
+            x_ulb_w,
+            y[x_lb.shape[0]:x_lb.shape[0]+x_ulb_w.shape[0]],
+            proxies,
+            num_classes,
+            osp.join(plot_dir, 'dist_ulb_w.svg')
+        )
+        self._create_distance_plot_gnn(
+            x_ulb_s,
+            y[x_lb.shape[0]+x_ulb_w.shape[0]:],
+            proxies,
+            num_classes,
+            osp.join(plot_dir, 'dist_ulb_s.svg')
         )
     
     @torch.no_grad()
