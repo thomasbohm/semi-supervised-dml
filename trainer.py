@@ -219,7 +219,7 @@ class Trainer():
             if self.config['mode'] != 'hyper':
                 plots_dir = osp.join(self.results_dir, 'plots')
                 os.mkdir(plots_dir)
-                self.test_run(resnet, dl_ev, plots_dir, gnn)
+                self.test_run(resnet, dl_ev, plots_dir)
                 if gnn and dl_tr_lb and dl_tr_ulb:
                     self.evaluator.create_train_plots(
                         resnet,
