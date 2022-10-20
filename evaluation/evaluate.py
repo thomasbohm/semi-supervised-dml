@@ -98,6 +98,13 @@ class Evaluator():
             num_classes,
             osp.join(plot_dir, 'dist_ulb_s.svg')
         )
+        self._create_distance_plot_gnn(
+            torch.cat((x_lb, x_ulb_w, x_ulb_s)),
+            torch.cat((y_lb, y_ulb, y_ulb)),
+            proxies,
+            num_classes,
+            osp.join(plot_dir, 'dist_all.svg')
+        )
     
     def _predict_batchwise(self, model, dataloader):
         fc7s, targets = [], []
