@@ -149,7 +149,7 @@ class Evaluator():
             feats_gnn_lb.append(embeds_gnn_lb)
             feats_gnn_ulb_w.append(embeds_gnn_ulb_w)
             feats_gnn_ulb_s.append(embeds_gnn_ulb_s)
-            targets.append(torch.cat(y_lb, y_ulb, y_ulb))
+            targets.append(torch.cat((y_lb, y_ulb, y_ulb)))
 
             #except TypeError:
             #    if torch.cuda.device_count() > 1:
