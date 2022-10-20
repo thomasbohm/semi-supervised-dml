@@ -5,3 +5,7 @@ The goal of Metric Learning is to model similarities of images, i.e. map samples
 Following rencent trends in semi-supervised learning, we apply a pseudo-labeling approach to leverage unlabeled data points. We further extend our method using Graph Neural Networks to model a global context of similar classes.
 
 Work in progress. ReadMe will be updated.
+
+![Fully-connected Graph connecting similar and dissimilar samples](graph_sketch.png)
+
+Images from CARS196 dataset.
