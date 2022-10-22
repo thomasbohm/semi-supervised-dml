@@ -146,7 +146,7 @@ class Evaluator():
             _, y_ulb_w = preds_ulb_w.max(dim=1)
 
             torch.use_deterministic_algorithms(False)
-            _, embeds_gnn = gnn(embeds, kclosest=kclosest, true_proxies=torch.cat((y_lb, y_ulb_w, y_ulb_w)))
+            _, embeds_gnn = gnn(embeds, kclosest=kclosest, true_proxies=torch.cat((y_lb.to(self.device), y_ulb_w, y_ulb_w)))
             torch.use_deterministic_algorithms(True)
             
             embeds_gnn = F.normalize(embeds_gnn, p=2, dim=1).cpu()
