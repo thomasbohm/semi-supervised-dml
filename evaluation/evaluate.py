@@ -140,10 +140,13 @@ class Evaluator():
         targets_ulb = []
         for (x_lb, y_lb, p_lb), (x_ulb_w, x_ulb_s, y_ulb, p_ulb) in zip(dl_tr_lb, dl_tr_ulb):
             x = torch.cat((x_lb, x_ulb_w, x_ulb_s)).to(self.device)
-            _, embeds = backbone(x, output_option='norm', val=True)
+            preds, embeds = backbone(x, output_option='norm', val=True)
+            preds_ulb_w = preds[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
+            preds_ulb_w = F.softmax(preds_ulb_w)
+            _, y_ulb_w = preds_ulb_w.max(dim=1)
 
             torch.use_deterministic_algorithms(False)
-            _, embeds_gnn = gnn(embeds, kclosest=kclosest)
+            _, embeds_gnn = gnn(embeds, kclosest=kclosest, true_proxies=torch.cat((y_lb, y_ulb_w, y_ulb_w)))
             torch.use_deterministic_algorithms(True)
             
             embeds_gnn = F.normalize(embeds_gnn, p=2, dim=1).cpu()

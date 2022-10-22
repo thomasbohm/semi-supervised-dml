@@ -417,7 +417,8 @@ class Trainer():
                 preds_gnn, embeds_gnn = gnn_model(
                     embeddings,
                     proxy_idx=proxy_idx,
-                    kclosest=self.config['gnn']['kclosest_edges']
+                    kclosest=self.config['gnn']['kclosest_edges'],
+                    true_proxies=torch.cat((y_lb, y_ulb_w, y_ulb_w))
                 )
                 torch.use_deterministic_algorithms(True)
 
