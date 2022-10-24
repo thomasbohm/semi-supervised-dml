@@ -88,7 +88,9 @@ class GNNModel(nn.Module):
 
         for l in self.layers:
             if isinstance(l, (geom_nn.MessagePassing, MultiHeadDotProduct)):
+                torch.use_deterministic_algorithms(False)
                 feats = l(feats, edge_index)
+                torch.use_deterministic_algorithms(True)
             else:
                 feats = l(feats)
 

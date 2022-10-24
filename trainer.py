@@ -347,9 +347,7 @@ class Trainer():
 
             if 'gnn' in self.config['model'].split('_'):
                 assert gnn_model and gnn_loss_fn
-                torch.use_deterministic_algorithms(False)
                 preds, embeddings = gnn_model(embeddings)
-                torch.use_deterministic_algorithms(True)
                 loss_gnn = gnn_loss_fn(preds, y).mean()
                 loss += loss_gnn
 
@@ -413,14 +411,12 @@ class Trainer():
                     proxy_idx = torch.cat((y_lb, y_ulb_w[preds_ulb_w_max > self.config['training']['loss_ulb_threshold']])).unique()
                 else:
                     proxy_idx = None
-                torch.use_deterministic_algorithms(False)
                 preds_gnn, embeds_gnn = gnn_model(
                     embeddings,
                     proxy_idx=proxy_idx,
                     kclosest=self.config['gnn']['kclosest_edges'],
                     true_proxies=torch.cat((y_lb, y_ulb_w, y_ulb_w))
                 )
-                torch.use_deterministic_algorithms(True)
 
                 preds_gnn_lb = preds_gnn[:x_lb.shape[0]]
                 preds_gnn_ulb_w = preds_gnn[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
