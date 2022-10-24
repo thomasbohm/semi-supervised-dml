@@ -25,7 +25,7 @@ class GNNModel(nn.Module):
             ]
             in_channels = 128
         else:
-            hidden_dim = 512 // num_heads
+            hidden_dim = 512
 
         if kwargs['gnn_conv'] == 'GAT':
             for _ in range(kwargs['num_layers']):
@@ -45,10 +45,10 @@ class GNNModel(nn.Module):
 
         if kwargs['add_mlp']:
             layers += [
-                nn.Linear(in_channels, 4 * embed_dim),
+                nn.Linear(in_channels, embed_dim),
                 nn.ReLU(),
                 nn.Dropout(0.1),
-                nn.Linear(4 * embed_dim, embed_dim),
+                nn.Linear(embed_dim, embed_dim),
                 nn.ReLU(),
                 nn.Dropout(0.1)
             ]
