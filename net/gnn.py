@@ -95,7 +95,9 @@ class GNNModel(nn.Module):
                 feats = l(feats)
 
         if isinstance(self.fc, geom_nn.MessagePassing):
+            torch.use_deterministic_algorithms(False)
             preds = self.fc(feats, edge_index)
+            torch.use_deterministic_algorithms(True)
         else:
             preds = self.fc(feats)
 
