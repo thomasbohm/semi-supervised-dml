@@ -544,10 +544,13 @@ class Trainer():
                 pin_memory=True,
             )
             if not self.labeled_only:
+                g = torch.Generator()
+                g.manual_seed(0)
                 sampler_ulb = RandomSampler(
                     dset_ulb,
                     replacement=True,
-                    num_samples=batch_size_ulb * num_batches
+                    num_samples=batch_size_ulb * num_batches,
+                    generator=g
                 )
                 dl_train_ulb = DataLoader(
                     dset_ulb,
