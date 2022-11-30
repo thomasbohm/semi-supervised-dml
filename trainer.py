@@ -123,7 +123,10 @@ class Trainer():
                     gnn_conv = self.config['gnn']['gnn_conv'],
                     gnn_fc = self.config['gnn']['gnn_fc'],
                     reduction_layer = self.config['gnn']['reduction_layer']
-                ).to(self.device)
+                )
+                if torch.cuda.device_count() > 1:
+                    gnn = nn.parallel.DataParallel(gnn)
+                gnn = gnn.to(self.device)
 
                 if self.config['gnn']['pretrained_path'] not in ['', 'no']:
                     gnn.load_state_dict(torch.load(self.config['gnn']['pretrained_path']))
@@ -315,11 +318,7 @@ class Trainer():
         self.logger.info('-' * 50)
         self.logger.info('ALL TRAINING SCORES (EPOCH, RECALLS, NMI):')
         for epoch, recalls, nmi in scores:
-            self.logger.info('{}: {}, {:.1f}'.format(
-                epoch,
-                ['{:.1f}'.format(100 * r) for r in recalls],
-                100 * nmi
-            ))
+            self.logger.info(f'{epoch}: {[round(100 * r, 1) for r in recalls]}, {100 * nmi:.1f}')
         self.logger.info(f'BEST R@1 (EPOCH {best_epoch}): {best_recall_at_1:.3f}')
 
         return best_recall_at_1
