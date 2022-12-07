@@ -454,7 +454,9 @@ class Trainer():
                     self.logger.info(f'GNN proxy : {self.config["training"]["loss_proxy_weight"] * loss_proxies:.2f}')
                     self.logger.info(f'Total loss: {loss:.2f}')
 
+            torch.use_deterministic_algorithms(True, warn_only=True)
             loss.backward()
+            torch.use_deterministic_algorithms(True)
             optimizer.step()
             first_batch = False
 
