@@ -358,7 +358,9 @@ class Trainer():
                 return
 
             # self.logger.info('loss_lb: {}'.format(loss))
+            torch.use_deterministic_algorithms(True, warn_only=True)
             loss.backward()
+            torch.use_deterministic_algorithms(True)
             optimizer.step()
             first_batch = False
 
