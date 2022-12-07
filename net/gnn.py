@@ -110,7 +110,7 @@ class GNNModel(nn.Module):
     
 
     def get_kclosest_edge_index(self, nodes, proxies, kclosest, true_proxies):
-        dist = torch.sqrt(((nodes[:, None, :] - proxies[None, :, :]) ** 2).sum(dim=2)) # (B, P)
+        dist = torch.cdist(nodes, proxies)
         _, closest_idx = torch.topk(dist, kclosest, dim=1, largest=False) # (B, k)
 
         edges = []
