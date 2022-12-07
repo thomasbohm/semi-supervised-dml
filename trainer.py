@@ -124,8 +124,6 @@ class Trainer():
                     gnn_fc = self.config['gnn']['gnn_fc'],
                     reduction_layer = self.config['gnn']['reduction_layer']
                 )
-                if torch.cuda.device_count() > 1:
-                    gnn = nn.parallel.DataParallel(gnn)
                 gnn = gnn.to(self.device)
 
                 if self.config['gnn']['pretrained_path'] not in ['', 'no']:

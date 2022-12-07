@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch_geometric.nn as geom_nn
 
+from torch.utils.checkpoint import checkpoint
 from net.attention import MultiHeadDotProduct
 
 
@@ -89,17 +90,17 @@ class GNNModel(nn.Module):
         for l in self.layers:
             if isinstance(l, (geom_nn.MessagePassing, MultiHeadDotProduct)):
                 torch.use_deterministic_algorithms(False)
-                feats = l(feats, edge_index)
+                feats = checkpoint(l, feats, edge_index)
                 torch.use_deterministic_algorithms(True)
             else:
-                feats = l(feats)
+                feats = checkpoint(l, feats)
 
         if isinstance(self.fc, geom_nn.MessagePassing):
             torch.use_deterministic_algorithms(False)
-            preds = self.fc(feats, edge_index)
+            preds = checkpoint(self.fc, feats, edge_index)
             torch.use_deterministic_algorithms(True)
         else:
-            preds = self.fc(feats)
+            preds = checkpoint(self.fc, feats)
 
         if not return_proxies:
             # do not return proxy predictions and features
