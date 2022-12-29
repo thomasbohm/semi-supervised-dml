@@ -10,3 +10,4 @@ playground.ipynb
 __pycache__/
 .vscode/
 *.npz
+*.pth
