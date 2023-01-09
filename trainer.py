@@ -79,7 +79,8 @@ class Trainer():
                 num_classes=num_classes,
                 pretrained_path=self.config['resnet']['pretrained_path'],
                 reduction=self.config['resnet']['reduction'],
-                neck=self.config['resnet']['bottleneck']
+                neck=self.config['resnet']['bottleneck'],
+                mixedpoolweight=self.config['resnet']['mixedpoolweight']
             )
             if torch.cuda.device_count() > 1:
                 self.logger.info(f'Using {torch.cuda.device_count()} GPUs')

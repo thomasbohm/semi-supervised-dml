@@ -140,7 +140,7 @@ class ModuleWrapperIgnores2ndArg(nn.Module):
 class ResNet(nn.Module):
     def __init__(self, block, layers, last_stride, neck, num_classes=1000,
                  zero_init_residual=False, groups=1, width_per_group=64,
-                 replace_stride_with_dilation=None, norm_layer=None, red=1):
+                 replace_stride_with_dilation=None, norm_layer=None, red=1, mixedpoolweight=0.5):
         super(ResNet, self).__init__()
         self.neck = neck
 
@@ -179,7 +179,10 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=last,
                                        dilate=replace_stride_with_dilation[2])
 
-        self.maxpool2 = nn.MaxPool2d(8)
+        self.avgpool2 = nn.AdaptiveAvgPool2d((1, 1))
+        self.maxpool2 = nn.AdaptiveMaxPool2d((1, 1))
+        self.mixedpoolweight = mixedpoolweight
+        #self.maxpool2 = nn.MaxPool2d(8)
 
         if red == 1:
             self.red = None
@@ -271,7 +274,12 @@ class ResNet(nn.Module):
         #x = self.layer4(x, val)
         x = checkpoint.checkpoint(self.layer4, x, val)
 
-        x = self.maxpool2(x)
+        if not val:
+            x = self.maxpool2(x)
+        else:
+            x_max = self.maxpool2(x)
+            x_avg = self.avgpool2(x)
+            x = self.mixedpoolweight * x_max + (1 - self.mixedpoolweight) * x_avg
 
         fc7 = torch.flatten(x, 1)
 
