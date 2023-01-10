@@ -4,7 +4,7 @@ from .utils import weights_init_kaiming, weights_init_classifier
 from .resnet import resnet50
 
 
-def load_resnet50(num_classes, pretrained_path='no', reduction=4, last_stride=0, neck=False, mixedpoolweight=0.5):
+def load_resnet50(num_classes, pretrained_path='no', reduction=4, last_stride=0, neck=False, mixedpoolweight=1.0):
     model = resnet50(
         pretrained=True,
         last_stride=last_stride,
