@@ -594,7 +594,7 @@ class Trainer():
             'num_classes_iter': num_classes_iter,
             'num_elements_class': num_elements_class,
             'loss_lb': random.choice(['ce', 'lsce']),
-            'loss_lb_temp': random.random(),
+            'loss_lb_temp': random.choice([ 1.0, random.random()]),
             #'loss_ulb_weight': random.choice([1, 2, 5]),
             #'loss_ulb_threshold': random.choice([0.8, 0.85, 0.9]),
             #'loss_ulb_gnn_threshold': random.choice([0.8, 0.85, 0.9]),
