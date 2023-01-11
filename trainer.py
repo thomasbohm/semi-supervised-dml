@@ -606,6 +606,7 @@ class Trainer():
         dataset_config = {
             'randaugment_num_ops': random.randint(2, 5),
             'randaugment_magnitude': random.randint(5, 15),
+            'random_erasing': random.choice([True, False]),
         }
         self.config['dataset'].update(dataset_config)
 
