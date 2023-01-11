@@ -620,7 +620,7 @@ class Trainer():
         self.config['gnn'].update(gnn_config)
 
         resnet_config = {
-            'mixedpoolweight': random.choice([0.7, 0.6, 0.5, 0.4, 0.3]),
+            'mixedpoolweight': random.choice([1.0, 0.7, 0.6, 0.5, 0.4, 0.3]),
         }
         self.config['resnet'].update(resnet_config)
 
