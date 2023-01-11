@@ -274,7 +274,7 @@ class ResNet(nn.Module):
         #x = self.layer4(x, val)
         x = checkpoint.checkpoint(self.layer4, x, val)
 
-        if not val:
+        if False and not val:
             x = self.maxpool2(x)
         else:
             x_max = self.maxpool2(x)
