@@ -75,7 +75,7 @@ class Trainer():
 
             # ResNet
             num_classes = self.config['dataset']['train_classes']
-            resnet, embed_dim = load_resnet50(
+            self.resnet, embed_dim = load_resnet50(
                 num_classes=num_classes,
                 pretrained_path=self.config['resnet']['pretrained_path'],
                 reduction=self.config['resnet']['reduction'],
@@ -84,8 +84,8 @@ class Trainer():
             )
             if torch.cuda.device_count() > 1:
                 self.logger.info(f'Using {torch.cuda.device_count()} GPUs')
-                resnet = nn.parallel.DataParallel(resnet)
-            resnet = resnet.to(self.device)
+                self.resnet = nn.parallel.DataParallel(self.resnet)
+            self.resnet = self.resnet.to(self.device)
             self.logger.info(f'Loaded resnet50 with embedding dim {embed_dim}.')
 
             # Projection Head
@@ -106,14 +106,14 @@ class Trainer():
                 if torch.cuda.device_count() > 1:
                     head_ulb = nn.parallel.DataParallel(head_ulb)
                 head_ulb = head_ulb.to(self.device)
-                params = list(set(resnet.parameters())) + list(set(head_ulb.parameters()))
+                params = list(set(self.resnet.parameters())) + list(set(head_ulb.parameters()))
             else:
-                params = resnet.parameters()
+                params = self.resnet.parameters()
 
-            gnn = None
+            self.gnn = None
             loss_fn_gnn = None
             if 'gnn' in self.config['model'].split('_'):
-                gnn = GNNModel(
+                self.gnn = GNNModel(
                     self.device,
                     embed_dim = embed_dim,
                     output_dim = num_classes,
@@ -125,20 +125,20 @@ class Trainer():
                     gnn_fc = self.config['gnn']['gnn_fc'],
                     reduction_layer = self.config['gnn']['reduction_layer']
                 )
-                gnn = gnn.to(self.device)
+                self.gnn = self.gnn.to(self.device)
 
                 if self.config['gnn']['pretrained_path'] not in ['', 'no']:
-                    gnn.load_state_dict(torch.load(self.config['gnn']['pretrained_path']))
+                    self.gnn.load_state_dict(torch.load(self.config['gnn']['pretrained_path']))
 
-                self.logger.info(gnn)
+                self.logger.info(self.gnn)
                 params = [
-                    { 'params': resnet.parameters() },
-                    { 'params': gnn.parameters(), 'lr': self.config['training']['lr_gnn'] }
+                    { 'params': self.resnet.parameters() },
+                    { 'params': self.gnn.parameters(), 'lr': self.config['training']['lr_gnn'] }
                 ]
                 loss_fn_gnn = nn.CrossEntropyLoss(reduction='none')
 
             # Optimizer
-            optimizer = RAdam(
+            self.optimizer = RAdam(
                 params,
                 lr=self.config['training']['lr'],
                 weight_decay=self.config['training']['weight_decay']
@@ -173,7 +173,7 @@ class Trainer():
                 self.logger.error(f'Unlabeled loss not supported: {self.config["training"]["loss_ulb"]}')
                 return
 
-            dl_tr_lb, dl_tr_ulb, dl_ev = self.get_dataloaders_ssl(
+            self.loader_dict = self.get_dataloaders_ssl(
                 self.config['dataset']['path'],
                 self.config['dataset']['train_classes'],
                 self.config['dataset']['labeled_fraction'],
@@ -181,17 +181,11 @@ class Trainer():
             )
 
             if self.config['mode'] != 'test':
-                assert dl_tr_lb
+                assert self.loader_dict['train_lb']
                 recall_at_1 = self.train_run(
-                    model=resnet,
                     head_ulb=head_ulb,
-                    optimizer=optimizer,
                     loss_fn_lb=loss_fn_lb,
                     loss_fn_ulb=loss_fn_ulb,
-                    dl_tr_lb=dl_tr_lb,
-                    dl_tr_ulb=dl_tr_ulb,
-                    dl_ev=dl_ev,
-                    gnn_model=gnn,
                     gnn_loss_fn=loss_fn_gnn
                 )
                 if recall_at_1 > best_recall_at_1:
@@ -209,25 +203,25 @@ class Trainer():
                     )
                     os.rename(osp.join(self.results_dir, self.filename),
                               osp.join(self.results_dir, filename))
-                    if gnn:
+                    if self.gnn:
                         os.rename(
                             osp.join(self.results_dir, self.filename_gnn),
                             osp.join(self.results_dir, filename_gnn)
                         )
-                    if gnn and self.config['mode'] == 'train':
-                        resnet.load_state_dict(torch.load(osp.join(self.results_dir, filename)))
-                        gnn.load_state_dict(torch.load(osp.join(self.results_dir, filename_gnn)))
+                    if self.gnn and self.config['mode'] == 'train':
+                        self.resnet.load_state_dict(torch.load(osp.join(self.results_dir, filename)))
+                        self.gnn.load_state_dict(torch.load(osp.join(self.results_dir, filename_gnn)))
 
             if self.config['mode'] != 'hyper':
                 plots_dir = osp.join(self.results_dir, 'plots')
                 os.mkdir(plots_dir)
-                self.test_run(resnet, dl_ev, plots_dir)
-                if gnn and dl_tr_lb and dl_tr_ulb:
+                self.test_run(plots_dir)
+                if self.gnn and self.loader_dict['train_lb'] and self.loader_dict['train_ulb']:
                     self.evaluator.create_train_plots(
-                        resnet,
-                        gnn,
-                        dl_tr_lb,
-                        dl_tr_ulb,
+                        self.resnet,
+                        self.gnn,
+                        self.loader_dict['train_lb'],
+                        self.loader_dict['train_ulb'],
                         self.config['dataset']['train_classes'],
                         plots_dir,
                         kclosest = self.config['gnn']['kclosest_edges']
@@ -240,15 +234,9 @@ class Trainer():
 
     def train_run(
         self,
-        model: nn.Module,
         head_ulb: Optional[nn.Module],
-        optimizer: Optimizer,
         loss_fn_lb: nn.CrossEntropyLoss,
         loss_fn_ulb: Optional[Union[nn.MSELoss, nn.KLDivLoss, nn.HuberLoss, NTXentLoss, nn.CrossEntropyLoss]],
-        dl_tr_lb: DataLoader,
-        dl_tr_ulb: Optional[DataLoader],
-        dl_ev: DataLoader,
-        gnn_model: Optional[GNNModel],
         gnn_loss_fn: Optional[nn.CrossEntropyLoss]
     ):
         scores = []
@@ -260,39 +248,30 @@ class Trainer():
             start = time.time()
 
             if epoch == 30 or epoch == 50:
-                self.reduce_lr(model, optimizer)
+                self.reduce_lr()
 
             if self.labeled_only:
                 self.train_epoch_without_ulb(
-                    dl_tr_lb,
-                    model,
-                    optimizer,
                     loss_fn_lb,
                     epoch,
                     self.config['mode'] == 'train',
-                    gnn_model,
                     gnn_loss_fn
                 )
             else:
-                assert dl_tr_ulb and loss_fn_ulb
+                assert self.loader_dict['train_ulb'] and loss_fn_ulb
                 self.train_epoch_with_ulb(
-                    dl_tr_lb,
-                    dl_tr_ulb,
-                    model,
                     head_ulb,
-                    optimizer,
                     loss_fn_lb,
                     loss_fn_ulb,
                     epoch,
                     self.config['mode'] == 'train',
-                    gnn_model,
                     gnn_loss_fn
                 )
             eval_start = time.time()
             with torch.no_grad():
                 recalls, nmi = self.evaluator.evaluate(
-                    model,
-                    dl_ev,
+                    self.resnet,
+                    self.loader_dict['eval'],
                     dataroot=self.config['dataset']['name'],
                     num_classes=self.config['dataset']['train_classes']
                 )
@@ -302,12 +281,12 @@ class Trainer():
                     best_recall_at_1 = recalls[0]
                     best_epoch = epoch
                     torch.save(
-                        model.state_dict(),
+                        self.resnet.state_dict(),
                         osp.join(self.results_dir, self.filename)
                     )
-                    if 'gnn' in self.config['model'].split('_') and gnn_model:
+                    if 'gnn' in self.config['model'].split('_') and self.gnn:
                         torch.save(
-                            gnn_model.state_dict(),
+                            self.gnn.state_dict(),
                             osp.join(self.results_dir, self.filename_gnn)
                         )
 
@@ -324,28 +303,24 @@ class Trainer():
 
     def train_epoch_without_ulb(
         self,
-        dl_tr_lb: DataLoader,
-        model: nn.Module,
-        optimizer: Optimizer,
         loss_fn_lb: nn.Module,
         epoch: int,
         plot_tsne: bool,
-        gnn_model: Optional[GNNModel],
         gnn_loss_fn: Optional[nn.CrossEntropyLoss]
     ):
         temp = self.config['training']['loss_lb_temp']
         first_batch = True
-        for (x, y, p) in dl_tr_lb:
-            optimizer.zero_grad()
+        for (x, y, p) in self.loader_dict['train_lb']:
+            self.optimizer.zero_grad()
 
             x = x.to(self.device)
             y = y.to(self.device)
-            preds, embeddings = model(x, output_option='norm', val=False)
+            preds, embeddings = self.resnet(x, output_option='norm', val=False)
             loss = loss_fn_lb(preds / temp, y)
 
             if 'gnn' in self.config['model'].split('_'):
-                assert gnn_model and gnn_loss_fn
-                preds, embeddings = gnn_model(embeddings)
+                assert self.gnn and gnn_loss_fn
+                preds, embeddings = self.gnn(embeddings)
                 loss_gnn = gnn_loss_fn(preds, y).mean()
                 loss += loss_gnn
 
@@ -362,30 +337,25 @@ class Trainer():
             torch.use_deterministic_algorithms(True, warn_only=True)
             loss.backward()
             torch.use_deterministic_algorithms(True)
-            optimizer.step()
+            self.optimizer.step()
             first_batch = False
 
     def train_epoch_with_ulb(
         self,
-        dl_tr_lb: DataLoader,
-        dl_tr_ulb: DataLoader,
-        encoder: nn.Module,
         head_ulb: Optional[nn.Module],
-        optimizer: Optimizer,
         loss_fn_lb: nn.Module,
         loss_fn_ulb: nn.Module,
         epoch: int,
         plot_tsne: bool,
-        gnn_model: Optional[GNNModel],
         gnn_loss_fn: Optional[nn.CrossEntropyLoss]
     ):
         temp = self.config['training']['loss_lb_temp']
         first_batch = True
-        for (x_lb, y_lb, p_lb), (x_ulb_w, x_ulb_s, y_ulb, p_ulb) in zip(dl_tr_lb, dl_tr_ulb):
-            optimizer.zero_grad()
+        for (x_lb, y_lb, p_lb), (x_ulb_w, x_ulb_s, y_ulb, p_ulb) in zip(self.loader_dict['train_lb'], self.loader_dict['train_ulb']):
+            self.optimizer.zero_grad()
 
             x = torch.cat((x_lb, x_ulb_w, x_ulb_s)).to(self.device)
-            preds, embeddings = encoder(x, output_option='norm', val=False)
+            preds, embeddings = self.resnet(x, output_option='norm', val=False)
 
             # Labeled encoder loss
             preds_lb = preds[:x_lb.shape[0]]
@@ -406,12 +376,12 @@ class Trainer():
                 self.logger.error('We have NaN numbers, closing\n\n\n')
                 return
 
-            if gnn_model and gnn_loss_fn:
+            if self.gnn and gnn_loss_fn:
                 if self.config['gnn']['batch_proxies']:
                     proxy_idx = torch.cat((y_lb, y_ulb_w[preds_ulb_w_max > self.config['training']['loss_ulb_threshold']])).unique()
                 else:
                     proxy_idx = None
-                preds_gnn, embeds_gnn = gnn_model(
+                preds_gnn, embeds_gnn = self.gnn(
                     embeddings,
                     proxy_idx=proxy_idx,
                     kclosest=self.config['gnn']['kclosest_edges'],
@@ -439,7 +409,7 @@ class Trainer():
                     embeds_gnn_lb = embeds_gnn[:x_lb.shape[0]]
                     embeds_gnn_ulb_s = embeds_gnn[x_lb.shape[0] + x_ulb_w.shape[0] :]
                     embeds = torch.cat((embeds_gnn_lb, embeds_gnn_ulb_s))
-                    proxies = torch.index_select(gnn_model.proxies, 0, y_gnn)
+                    proxies = torch.index_select(self.gnn.proxies, 0, y_gnn)
                     loss_proxies = F.mse_loss(embeds, proxies, reduction='none') * mask_gnn.unsqueeze(1)
                     loss_proxies = loss_proxies.mean()
                     loss += self.config['training']['loss_proxy_weight'] * loss_proxies
@@ -458,18 +428,18 @@ class Trainer():
             torch.use_deterministic_algorithms(True, warn_only=True)
             loss.backward()
             torch.use_deterministic_algorithms(True)
-            optimizer.step()
+            self.optimizer.step()
             first_batch = False
 
-    def test_run(self, model: nn.Module, dl_ev: DataLoader, plots_dir):
+    def test_run(self, plot_dir):
         with torch.no_grad():
             recalls, nmi = self.evaluator.evaluate(
-                model,
-                dl_ev,
+                self.resnet,
+                self.loader_dict['eval'],
                 dataroot=self.config['dataset']['name'],
                 num_classes=self.config['dataset']['train_classes'],
                 tsne=True,
-                plot_dir=plots_dir
+                plot_dir=plot_dir
             )
             return recalls, nmi
 
@@ -577,7 +547,7 @@ class Trainer():
             num_workers=1,
             pin_memory=True,
         )
-        return dl_train_lb, dl_train_ulb, dl_eval
+        return { 'train_lb': dl_train_lb, 'train_ulb': dl_train_ulb, 'eval': dl_eval }
 
     def sample_hypers(self):
         random.seed()
@@ -624,11 +594,11 @@ class Trainer():
         }
         self.config['resnet'].update(resnet_config)
 
-    def reduce_lr(self, model: nn.Module, optimizer: Optimizer):
+    def reduce_lr(self):
         self.logger.info('Reducing learning rate:')
         path = osp.join(self.results_dir, self.filename)
-        model.load_state_dict(torch.load(path))
-        for g in optimizer.param_groups:
+        self.resnet.load_state_dict(torch.load(path))
+        for g in self.optimizer.param_groups:
             self.logger.info(f'{g["lr"]} -> {g["lr"] / 10}')
             g['lr'] /= 10.
 
