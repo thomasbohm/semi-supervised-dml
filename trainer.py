@@ -55,6 +55,8 @@ class Trainer():
         self.labeled_only = self.config['training']['loss_ulb'] == '' or \
             self.config['dataset']['labeled_fraction'] >= 1.0
 
+        self.loss_scaler = torch.cuda.amp.GradScaler()
+
     def start(self):
         self.logger.info(f'Device: {self.device}')
         hyper_search = self.config['mode'] == 'hyper'
@@ -354,6 +356,7 @@ class Trainer():
         for (x_lb, y_lb, p_lb), (x_ulb_w, x_ulb_s, y_ulb, p_ulb) in zip(self.loader_dict['train_lb'], self.loader_dict['train_ulb']):
             self.optimizer.zero_grad()
 
+            with torch.cuda.amp.autocast():
             x = torch.cat((x_lb, x_ulb_w, x_ulb_s)).to(self.device)
             preds, embeddings = self.resnet(x, output_option='norm', val=False)
 
@@ -425,10 +428,13 @@ class Trainer():
                     self.logger.info(f'GNN proxy : {self.config["training"]["loss_proxy_weight"] * loss_proxies:.2f}')
                     self.logger.info(f'Total loss: {loss:.2f}')
 
-            torch.use_deterministic_algorithms(True, warn_only=True)
-            loss.backward()
+            torch.use_deterministic_algorithms(False)
+            self.loss_scaler.scale(loss).backward()
+            #loss.backward()
             torch.use_deterministic_algorithms(True)
-            self.optimizer.step()
+            self.loss_scaler.step(self.optimizer)
+            self.loss_scaler.update()
+            #self.optimizer.step()
             first_batch = False
 
     def test_run(self, plot_dir):
