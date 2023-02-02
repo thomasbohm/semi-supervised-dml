@@ -28,7 +28,7 @@ class GNNModel(nn.Module):
         else:
             hidden_dim = 512
 
-        if kwargs['gnn_conv'] == 'GAT':
+        if kwargs['gnn_conv'].lower() == 'gat':
             for _ in range(kwargs['num_layers']):
                 layers += [
                     geom_nn.GATConv(in_channels=in_channels, out_channels=hidden_dim, heads=num_heads),
@@ -36,13 +36,15 @@ class GNNModel(nn.Module):
                     nn.Dropout(0.1)
                 ]
                 in_channels = num_heads * hidden_dim
-        else:
+        elif kwargs['gnn_conv'].lower() == 'dotproduct':
             for _ in range(kwargs['num_layers']):
                 layers += [
                     MultiHeadDotProduct(in_channels, num_heads, aggr='add', dropout=0.1),
                     nn.ReLU(),
                     nn.Dropout(0.1)
                 ]
+        else:
+            raise NotImplementedError
 
         if kwargs['add_mlp']:
             layers += [
