@@ -1,0 +1,52 @@
+mode: "test"
+
+model: "backbone_gnn"
+
+resnet:
+  pretrained_path: "./results/CARS/2022-11-19_02:19:16/CARS_10.0_best.pth"
+  reduction: 4
+  bottleneck: False
+  mixedpoolweight: 1.0
+
+gnn:
+  pretrained_path: "no"
+  num_layers: 1
+  num_heads: 1
+  num_proxies: 98
+  add_mlp: False
+  gnn_conv: "GAT"
+  gnn_fc: False
+  reduction_layer: False
+  batch_proxies: False
+  kclosest_edges: 12
+
+dataset:
+  path: "data/CARS"
+  name: "CARS"
+  train_classes: 98
+  labeled_fraction: 0.1
+  transform_lb_strong: False
+  transform_ulb_strong: "randaugment"
+  random_erasing: False
+  randaugment_num_ops: 3
+  randaugment_magnitude: 8
+  num_workers: 4
+
+training:
+  epochs: 70
+  lr: 7.158612428060874e-05
+  lr_gnn: 0.0005559102896930936
+  weight_decay: 2.080427824054099e-08
+  num_classes_iter: 10
+  num_elements_class: 6
+  loss_lb: "lsce"
+  loss_lb_temp: 0.275710660197261
+  loss_ulb: ""
+  loss_ulb_weight: 0
+  loss_ulb_warmup: 0
+  loss_ulb_temp: 1
+  loss_ulb_threshold: 0.7
+  loss_ulb_gnn_threshold: 0.7
+  loss_proxy: "l2"
+  loss_proxy_weight: 1
+  ulb_batch_size_factor: 7

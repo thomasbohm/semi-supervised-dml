@@ -1,0 +1,52 @@
+mode: "test"
+
+model: "backbone_gnn"
+
+resnet:
+  pretrained_path: "./results/CUB/2023-01-03_12:14:26/CUB_10.0_best.pth"
+  reduction: 4
+  bottleneck: False
+  mixedpoolweight: 1.0
+
+gnn:
+  num_layers: 1
+  num_heads: 2
+  kclosest_edges: 12
+  num_proxies: 100
+  pretrained_path: "no"
+  gnn_conv: "GAT"
+  add_mlp: False
+  gnn_fc: False
+  reduction_layer: False
+  batch_proxies: False
+
+dataset:
+  path: "data/CUB"
+  name: "CUB"
+  train_classes: 100
+  labeled_fraction: 0.1
+  transform_lb_strong: False
+  random_erasing: False
+  transform_ulb_strong: "randaugment"
+  randaugment_num_ops: 4
+  randaugment_magnitude: 9
+  num_workers: 6
+
+training:
+  epochs: 70
+  lr: 0.00031973018204411557
+  lr_gnn: 0.00031973018204411557
+  weight_decay: 1.1412430415673703e-07
+  num_classes_iter: 12
+  num_elements_class: 5
+  loss_lb: "ce"
+  loss_lb_temp: 0.93405458603775
+  loss_ulb: "ce_thresh"
+  loss_ulb_weight: 5
+  loss_ulb_threshold: 0.9
+  loss_ulb_gnn_threshold: 0.9
+  loss_proxy: "l2"
+  loss_proxy_weight: 1
+  ulb_batch_size_factor: 7
+  loss_ulb_temp: 1
+  loss_ulb_warmup: 0

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.manifold import TSNE
 import torch.nn.functional as F
+from sklearn.metrics.pairwise import pairwise_distances
 from .normalized_mutual_information import calc_normalized_mutual_information, cluster_by_kmeans
 from .recall import calc_recall_at_k, assign_by_euclidian_at_k
 
@@ -36,10 +37,15 @@ class Evaluator():
         model_is_training = model.training
         model.eval()
 
-        feats, targets = self._predict_batchwise(model, dataloader)
+        feats, targets, paths = self._predict_batchwise(model, dataloader)
 
         if tsne:
-            self._create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_backbone.svg'))
+            #self._create_tsne_plot(feats, targets, osp.join(plot_dir, 'tsne_backbone.svg'))
+            #distances = pairwise_distances(feats)
+            #indices = np.argsort(distances, axis=1)[:, 0:5]
+            #retrieval = paths[indices]
+            #np.savez_compressed(osp.join(plot_dir, 'retrieval'), retrieval=retrieval)
+            pass
 
         if dataroot != 'SOP':
             Y, targets = assign_by_euclidian_at_k(feats, targets, 8)
@@ -107,13 +113,14 @@ class Evaluator():
         )
     
     def _predict_batchwise(self, model, dataloader):
-        fc7s, targets = [], []
+        fc7s, targets, paths = [], [], []
         for x, y, p in dataloader:
             x = x.to(self.device)
             try:
                 preds, embeds = model(x, output_option='norm', val=True)
                 fc7s.append(F.normalize(embeds, p=2, dim=1).cpu())
                 targets.append(y)
+                paths.extend(p)
 
             except TypeError:
                 if torch.cuda.device_count() > 1:
@@ -127,7 +134,7 @@ class Evaluator():
                     raise TypeError()
 
         fc7, targets = torch.cat(fc7s), torch.cat(targets)
-        return torch.squeeze(fc7), torch.squeeze(targets)
+        return torch.squeeze(fc7), torch.squeeze(targets), np.array(paths)
 
     def _predict_batchwise_gnn(self, backbone, gnn, dl_tr_lb, dl_tr_ulb, kclosest):
         backbone.eval()
