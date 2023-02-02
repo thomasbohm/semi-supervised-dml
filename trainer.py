@@ -553,6 +553,9 @@ class Trainer():
         self.logger.info('Reducing learning rate:')
         path = osp.join(self.results_dir, self.filename)
         self.resnet.load_state_dict(torch.load(path))
+        if self.gnn:
+            path_gnn = osp.join(self.results_dir, self.filename_gnn)
+            self.gnn.load_state_dict(torch.load(path_gnn))
         for g in self.optimizer.param_groups:
             self.logger.info(f'{g["lr"]} -> {g["lr"] / 10}')
             g['lr'] /= 10.
