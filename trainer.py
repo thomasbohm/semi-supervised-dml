@@ -54,7 +54,7 @@ class Trainer():
 
         self.labeled_only = self.config['training']['loss_ulb'] == '' or \
             self.config['dataset']['labeled_fraction'] >= 1.0
-
+        
         self.loss_scaler = torch.cuda.amp.GradScaler()
 
     def start(self):
@@ -77,40 +77,20 @@ class Trainer():
 
             # ResNet
             num_classes = self.config['dataset']['train_classes']
-            self.resnet, embed_dim = load_resnet50(
-                num_classes=num_classes,
-                pretrained_path=self.config['resnet']['pretrained_path'],
-                reduction=self.config['resnet']['reduction'],
-                neck=self.config['resnet']['bottleneck'],
-                mixedpoolweight=self.config['resnet']['mixedpoolweight']
-            )
+                self.resnet, embed_dim = load_resnet50(
+                    num_classes=num_classes,
+                    pretrained_path=self.config['resnet']['pretrained_path'],
+                    reduction=self.config['resnet']['reduction'],
+                    neck=self.config['resnet']['bottleneck'],
+                    mixedpoolweight=self.config['resnet']['mixedpoolweight']
+                )
             if torch.cuda.device_count() > 1:
                 self.logger.info(f'Using {torch.cuda.device_count()} GPUs')
                 self.resnet = nn.parallel.DataParallel(self.resnet)
             self.resnet = self.resnet.to(self.device)
             self.logger.info(f'Loaded resnet50 with embedding dim {embed_dim}.')
 
-            # Projection Head
-            head_ulb = None
-            if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head', 'kl_head', 'simclr']:
-                if self.config['training']['loss_ulb'] in ['l2_head', 'huber_head', 'simclr']:
-                    head_ulb = nn.Sequential(
-                        nn.Linear(embed_dim, 2 * embed_dim),
-                        nn.ReLU(),
-                        nn.Linear(2 * embed_dim, embed_dim)
-                    )
-                else:
-                    head_ulb = nn.Sequential(
-                        nn.Linear(num_classes, 4 * num_classes),
-                        nn.ReLU(),
-                        nn.Linear(4 * num_classes, num_classes)
-                    )
-                if torch.cuda.device_count() > 1:
-                    head_ulb = nn.parallel.DataParallel(head_ulb)
-                head_ulb = head_ulb.to(self.device)
-                params = list(set(self.resnet.parameters())) + list(set(head_ulb.parameters()))
-            else:
-                params = self.resnet.parameters()
+            params = self.resnet.parameters()
 
             self.gnn = None
             loss_fn_gnn = None
@@ -140,11 +120,11 @@ class Trainer():
                 loss_fn_gnn = nn.CrossEntropyLoss(reduction='none')
 
             # Optimizer
-            self.optimizer = RAdam(
-                params,
-                lr=self.config['training']['lr'],
-                weight_decay=self.config['training']['weight_decay']
-            )
+                self.optimizer = RAdam(
+                    params,
+                    lr=self.config['training']['lr'],
+                    weight_decay=self.config['training']['weight_decay']
+                )
 
             # Labeled Loss Function
             if self.config['training']['loss_lb'] == 'lsce':
@@ -155,25 +135,11 @@ class Trainer():
             # Unlabeled Loss Function
             if self.config['training']['loss_ulb'] == '':
                 loss_fn_ulb = None
-            elif self.config['training']['loss_ulb'] in ['l2', 'l2_head']:
-                loss_fn_ulb = nn.MSELoss()
-            elif self.config['training']['loss_ulb'] in ['kl', 'kl_head']:
-                loss_fn_ulb = nn.KLDivLoss(log_target=True, reduction='batchmean')
-            elif self.config['training']['loss_ulb'] in ['huber', 'huber_head']:
-                loss_fn_ulb = nn.HuberLoss()
-            elif self.config['training']['loss_ulb'] in ['ce_soft', 'ce_hard']:
-                loss_fn_ulb = nn.CrossEntropyLoss()
-            elif self.config['training']['loss_ulb'] in ['ce_thresh']:
+            elif self.config['training']['loss_ulb'] in ['ce_thresh', 'fixmatch']:
                 loss_fn_ulb = nn.CrossEntropyLoss(reduction='none')
-            elif self.config['training']['loss_ulb'] == 'simclr':
-                class_per_batch = self.config['training']['num_classes_iter']
-                elements_per_class = self.config['training']['num_elements_class']
-                batch_size_lb = class_per_batch * elements_per_class
-                batch_size_ulb = self.config['training']['ulb_batch_size_factor'] * batch_size_lb
-                loss_fn_ulb = NTXentLoss(batch_size=batch_size_ulb, device=self.device)
             else:
                 self.logger.error(f'Unlabeled loss not supported: {self.config["training"]["loss_ulb"]}')
-                return
+                raise NotImplementedError
 
             self.loader_dict = self.get_dataloaders_ssl(
                 self.config['dataset']['path'],
@@ -185,7 +151,6 @@ class Trainer():
             if self.config['mode'] != 'test':
                 assert self.loader_dict['train_lb']
                 recall_at_1 = self.train_run(
-                    head_ulb=head_ulb,
                     loss_fn_lb=loss_fn_lb,
                     loss_fn_ulb=loss_fn_ulb,
                     gnn_loss_fn=loss_fn_gnn
@@ -218,16 +183,16 @@ class Trainer():
                 plots_dir = osp.join(self.results_dir, 'plots')
                 os.mkdir(plots_dir)
                 self.test_run(plots_dir)
-                if self.gnn and self.loader_dict['train_lb'] and self.loader_dict['train_ulb']:
-                    self.evaluator.create_train_plots(
-                        self.resnet,
-                        self.gnn,
-                        self.loader_dict['train_lb'],
-                        self.loader_dict['train_ulb'],
-                        self.config['dataset']['train_classes'],
-                        plots_dir,
-                        kclosest = self.config['gnn']['kclosest_edges']
-                    )
+                #if self.gnn and self.loader_dict['train_lb'] and self.loader_dict['train_ulb']:
+                #    self.evaluator.create_train_plots(
+                #        self.resnet,
+                #        self.gnn,
+                #        self.loader_dict['train_lb'],
+                #        self.loader_dict['train_ulb'],
+                #        self.config['dataset']['train_classes'],
+                #        plots_dir,
+                #        kclosest = self.config['gnn']['kclosest_edges']
+                #    )
 
         if hyper_search:
             self.logger.info(f'Best Run: {best_run}')
@@ -236,7 +201,6 @@ class Trainer():
 
     def train_run(
         self,
-        head_ulb: Optional[nn.Module],
         loss_fn_lb: nn.CrossEntropyLoss,
         loss_fn_ulb: Optional[Union[nn.MSELoss, nn.KLDivLoss, nn.HuberLoss, NTXentLoss, nn.CrossEntropyLoss]],
         gnn_loss_fn: Optional[nn.CrossEntropyLoss]
@@ -249,24 +213,19 @@ class Trainer():
             self.logger.info(f'EPOCH {epoch}/{self.config["training"]["epochs"]}')
             start = time.time()
 
-            if epoch == 30 or epoch == 50:
-                self.reduce_lr()
+                if epoch == 30 or epoch == 50:
+                    self.reduce_lr()
 
             if self.labeled_only:
                 self.train_epoch_without_ulb(
                     loss_fn_lb,
-                    epoch,
-                    self.config['mode'] == 'train',
                     gnn_loss_fn
                 )
             else:
                 assert self.loader_dict['train_ulb'] and loss_fn_ulb
                 self.train_epoch_with_ulb(
-                    head_ulb,
                     loss_fn_lb,
                     loss_fn_ulb,
-                    epoch,
-                    self.config['mode'] == 'train',
                     gnn_loss_fn
                 )
             eval_start = time.time()
@@ -306,8 +265,6 @@ class Trainer():
     def train_epoch_without_ulb(
         self,
         loss_fn_lb: nn.Module,
-        epoch: int,
-        plot_tsne: bool,
         gnn_loss_fn: Optional[nn.CrossEntropyLoss]
     ):
         temp = self.config['training']['loss_lb_temp']
@@ -326,11 +283,6 @@ class Trainer():
                 loss_gnn = gnn_loss_fn(preds, y).mean()
                 loss += loss_gnn
 
-            #if plot_tsne and epoch % 10 == 0 and first_batch:
-                #path = osp.join(self.results_dir, f'tsne_train_lb_{epoch}.svg')
-                #self.evaluator.create_tsne_plot(embeddings, y, path)
-                # self.logger.info(f'Counter(y_lb): {Counter(y.tolist()).most_common()}')
-
             if torch.isnan(loss):
                 self.logger.error('We have NaN numbers, closing\n\n\n')
                 return
@@ -344,11 +296,8 @@ class Trainer():
 
     def train_epoch_with_ulb(
         self,
-        head_ulb: Optional[nn.Module],
         loss_fn_lb: nn.Module,
         loss_fn_ulb: nn.Module,
-        epoch: int,
-        plot_tsne: bool,
         gnn_loss_fn: Optional[nn.CrossEntropyLoss]
     ):
         temp = self.config['training']['loss_lb_temp']
@@ -357,76 +306,76 @@ class Trainer():
             self.optimizer.zero_grad()
 
             with torch.cuda.amp.autocast():
-            x = torch.cat((x_lb, x_ulb_w, x_ulb_s)).to(self.device)
-            preds, embeddings = self.resnet(x, output_option='norm', val=False)
+                x = torch.cat((x_lb, x_ulb_w, x_ulb_s)).to(self.device)
+                preds, embeddings = self.resnet(x, output_option='norm', val=False)
 
-            # Labeled encoder loss
-            preds_lb = preds[:x_lb.shape[0]]
-            y_lb = y_lb.to(self.device)
-            loss_lb = loss_fn_lb(preds_lb / temp, y_lb)
+                # Labeled encoder loss
+                preds_lb = preds[:x_lb.shape[0]]
+                y_lb = y_lb.to(self.device)
+                loss_lb = loss_fn_lb(preds_lb / temp, y_lb)
 
-            # Unlabeled encoder loss
-            preds_ulb_w = preds[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
-            preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0] :]
-            preds_ulb_w = F.softmax(preds_ulb_w)
-            preds_ulb_w_max, y_ulb_w = preds_ulb_w.max(dim=1)
-            mask = preds_ulb_w_max.gt(self.config['training']['loss_ulb_threshold'])
-            loss_ulb = loss_fn_ulb(preds_ulb_s, y_ulb_w) * mask
-            loss_ulb = loss_ulb.mean()
-            
-            loss = loss_lb + self.config['training']['loss_ulb_weight'] * loss_ulb
-            if torch.isnan(loss):
-                self.logger.error('We have NaN numbers, closing\n\n\n')
-                return
+                # Unlabeled encoder loss
+                preds_ulb_w = preds[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
+                preds_ulb_s = preds[x_lb.shape[0] + x_ulb_w.shape[0] :]
+                preds_ulb_w = F.softmax(preds_ulb_w)
+                preds_ulb_w_max, y_ulb_w = preds_ulb_w.max(dim=1)
+                mask = preds_ulb_w_max.gt(self.config['training']['loss_ulb_threshold'])
+                loss_ulb = loss_fn_ulb(preds_ulb_s, y_ulb_w) * mask
+                loss_ulb = loss_ulb.mean()
+                
+                loss = loss_lb + self.config['training']['loss_ulb_weight'] * loss_ulb
+                if torch.isnan(loss):
+                    self.logger.error('We have NaN numbers, closing\n\n\n')
+                    return
 
-            if self.gnn and gnn_loss_fn:
-                if self.config['gnn']['batch_proxies']:
-                    proxy_idx = torch.cat((y_lb, y_ulb_w[preds_ulb_w_max > self.config['training']['loss_ulb_threshold']])).unique()
-                else:
-                    proxy_idx = None
-                preds_gnn, embeds_gnn = self.gnn(
-                    embeddings,
-                    proxy_idx=proxy_idx,
-                    kclosest=self.config['gnn']['kclosest_edges'],
-                    true_proxies=torch.cat((y_lb, y_ulb_w, y_ulb_w))
-                )
+                if self.gnn and gnn_loss_fn:
+                    if self.config['gnn']['batch_proxies']:
+                        proxy_idx = torch.cat((y_lb, y_ulb_w[preds_ulb_w_max > self.config['training']['loss_ulb_threshold']])).unique()
+                    else:
+                        proxy_idx = None
+                    preds_gnn, embeds_gnn = self.gnn(
+                        embeddings,
+                        proxy_idx=proxy_idx,
+                        kclosest=self.config['gnn']['kclosest_edges'],
+                        true_proxies=torch.cat((y_lb, y_ulb_w, y_ulb_w))
+                    )
 
-                preds_gnn_lb = preds_gnn[:x_lb.shape[0]]
-                preds_gnn_ulb_w = preds_gnn[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
-                preds_gnn_ulb_s = preds_gnn[x_lb.shape[0] + x_ulb_w.shape[0] :]
+                    preds_gnn_lb = preds_gnn[:x_lb.shape[0]]
+                    preds_gnn_ulb_w = preds_gnn[x_lb.shape[0] : x_lb.shape[0] + x_ulb_w.shape[0]]
+                    preds_gnn_ulb_s = preds_gnn[x_lb.shape[0] + x_ulb_w.shape[0] :]
 
-                preds_gnn_ulb_w = F.softmax(preds_gnn_ulb_w)
-                preds_gnn_max, preds_gnn_argmax = preds_gnn_ulb_w.max(dim=1)
-                mask_gnn = preds_gnn_max.gt(self.config['training']['loss_ulb_gnn_threshold'])
-                mask_gnn = torch.cat((torch.ones(x_lb.shape[0], device=self.device), mask_gnn))
+                    preds_gnn_ulb_w = F.softmax(preds_gnn_ulb_w)
+                    preds_gnn_max, preds_gnn_argmax = preds_gnn_ulb_w.max(dim=1)
+                    mask_gnn = preds_gnn_max.gt(self.config['training']['loss_ulb_gnn_threshold'])
+                    mask_gnn = torch.cat((torch.ones(x_lb.shape[0], device=self.device), mask_gnn))
 
-                x_gnn = torch.cat((preds_gnn_lb, preds_gnn_ulb_s))
-                y_gnn = torch.cat((y_lb, preds_gnn_argmax))
+                    x_gnn = torch.cat((preds_gnn_lb, preds_gnn_ulb_s))
+                    y_gnn = torch.cat((y_lb, preds_gnn_argmax))
 
-                loss_gnn = gnn_loss_fn(x_gnn, y_gnn) * mask_gnn
-                loss_gnn = loss_gnn.mean()
-                loss += loss_gnn
+                    loss_gnn = gnn_loss_fn(x_gnn, y_gnn) * mask_gnn
+                    loss_gnn = loss_gnn.mean()
+                    loss += loss_gnn
 
-                loss_proxies = 0.0
-                if self.config['training']['loss_proxy'] == 'l2':
-                    embeds_gnn_lb = embeds_gnn[:x_lb.shape[0]]
-                    embeds_gnn_ulb_s = embeds_gnn[x_lb.shape[0] + x_ulb_w.shape[0] :]
-                    embeds = torch.cat((embeds_gnn_lb, embeds_gnn_ulb_s))
-                    proxies = torch.index_select(self.gnn.proxies, 0, y_gnn)
-                    loss_proxies = F.mse_loss(embeds, proxies, reduction='none') * mask_gnn.unsqueeze(1)
-                    loss_proxies = loss_proxies.mean()
-                    loss += self.config['training']['loss_proxy_weight'] * loss_proxies
-                #elif self.config['training']['loss_proxy'] == 'ce':
-                    #classes = y_gnn.unique()
-                    #loss_proxies = F.cross_entropy(preds_proxies[classes], classes)
-                    #loss += loss_proxies
+                    loss_proxies = 0.0
+                    if self.config['training']['loss_proxy'] == 'l2':
+                        embeds_gnn_lb = embeds_gnn[:x_lb.shape[0]]
+                        embeds_gnn_ulb_s = embeds_gnn[x_lb.shape[0] + x_ulb_w.shape[0] :]
+                        embeds = torch.cat((embeds_gnn_lb, embeds_gnn_ulb_s))
+                        proxies = torch.index_select(self.gnn.proxies, 0, y_gnn)
+                        loss_proxies = F.mse_loss(embeds, proxies, reduction='none') * mask_gnn.unsqueeze(1)
+                        loss_proxies = loss_proxies.mean()
+                        loss += self.config['training']['loss_proxy_weight'] * loss_proxies
+                    #elif self.config['training']['loss_proxy'] == 'ce':
+                        #classes = y_gnn.unique()
+                        #loss_proxies = F.cross_entropy(preds_proxies[classes], classes)
+                        #loss += loss_proxies
 
-                if first_batch:
-                    self.logger.info(f'ResNet lb : {loss_lb:.2f}')
-                    self.logger.info(f'ResNet ulb: {self.config["training"]["loss_ulb_weight"] * loss_ulb:.2f}')
-                    self.logger.info(f'GNN       : {loss_gnn:.2f}')
-                    self.logger.info(f'GNN proxy : {self.config["training"]["loss_proxy_weight"] * loss_proxies:.2f}')
-                    self.logger.info(f'Total loss: {loss:.2f}')
+                    if first_batch:
+                        self.logger.info(f'ResNet lb : {loss_lb:.2f}')
+                        self.logger.info(f'ResNet ulb: {self.config["training"]["loss_ulb_weight"] * loss_ulb:.2f}')
+                        self.logger.info(f'GNN       : {loss_gnn:.2f}')
+                        self.logger.info(f'GNN proxy : {self.config["training"]["loss_proxy_weight"] * loss_proxies:.2f}')
+                        self.logger.info(f'Total loss: {loss:.2f}')
 
             torch.use_deterministic_algorithms(False)
             self.loss_scaler.scale(loss).backward()
