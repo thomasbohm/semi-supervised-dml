@@ -6,18 +6,23 @@ resnet:
   pretrained_path: "no"
   reduction: 4
   bottleneck: False
+  mixedpoolweight: 1.0
+  
+  new: False
+  bn_freeze: True
+  l2_norm: False
 
 gnn:
-  pretrained_path: "no"
   num_layers: 1
-  num_heads: 1
+  num_heads: 2
+  kclosest_edges: 12
   num_proxies: 100
+  pretrained_path: "no"
+  gnn_conv: "mlp2"
   add_mlp: False
-  gnn_conv: "GAT"
   gnn_fc: False
   reduction_layer: False
   batch_proxies: False
-  kclosest_edges: 0
 
 dataset:
   path: "data/CUB"
@@ -25,27 +30,31 @@ dataset:
   train_classes: 100
   labeled_fraction: 0.1
   transform_lb_strong: False
-  transform_ulb_strong: "randaugment"
   random_erasing: False
-  randaugment_num_ops: 2
+  transform_ulb_strong: "randaugment"
+  randaugment_num_ops: 4
   randaugment_magnitude: 9
   num_workers: 4
 
 training:
-  epochs: 1
-  lr: 0.0001
-  lr_gnn: 0.0001
-  weight_decay: 0.000006
-  num_classes_iter: 6
-  num_elements_class: 9
+  epochs: 70
+  lr: 0.00031973018204411557
+  lr_gnn: 0.00031973018204411557
+  weight_decay: 1.1412430415673703e-07
+  num_classes_iter: 12
+  num_elements_class: 5
   loss_lb: "ce"
-  loss_lb_temp: 0.11
-  loss_ulb: ""
-  loss_ulb_weight: 1
-  loss_ulb_warmup: 0
-  loss_ulb_temp: 0.11
-  loss_ulb_threshold: 0.8
+  loss_lb_temp: 0.93405458603775
+  loss_ulb: "fixmatch"
+  loss_ulb_weight: 5
+  loss_ulb_threshold: 0.9
   loss_ulb_gnn_threshold: 0.9
-  loss_proxy: False
+  loss_ulb_temp: 1
+  loss_ulb_warmup: 0
+  loss_proxy: ""
   loss_proxy_weight: 1
   ulb_batch_size_factor: 7
+  
+  new_schedule: False
+  warmup: 0
+  optimizer: "radam"

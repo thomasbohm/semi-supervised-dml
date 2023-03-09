@@ -43,7 +43,7 @@ class GNNModel(nn.Module):
                     nn.ReLU(),
                     nn.Dropout(0.1)
                 ]
-        else:
+        elif kwargs['gnn_conv'].lower() not in ['mlp1', 'mlp2']:
             raise NotImplementedError
 
         if kwargs['add_mlp']:
@@ -58,6 +58,22 @@ class GNNModel(nn.Module):
         elif in_channels != embed_dim:
             layers += [
                 nn.Linear(in_channels, embed_dim),
+                nn.ReLU(),
+                nn.Dropout(0.1)
+            ]
+
+        if kwargs['gnn_conv'].lower() == 'mlp1':
+            layers = [
+                nn.Linear(512, 512),
+                nn.ReLU(),
+                nn.Dropout(0.1)
+            ]
+        elif kwargs['gnn_conv'].lower() == 'mlp2':
+            layers = [
+                nn.Linear(512, 1024),
+                nn.ReLU(),
+                nn.Dropout(0.1),
+                nn.Linear(1024, 512),
                 nn.ReLU(),
                 nn.Dropout(0.1)
             ]

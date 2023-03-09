@@ -23,6 +23,7 @@ from net.gnn import GNNModel
 from net.load_net import load_resnet50
 from RAdam import RAdam
 from net.loss import NTXentLoss
+from net.resnet2 import Resnet50
 
 
 class Trainer():
@@ -47,7 +48,7 @@ class Trainer():
             self.config['dataset']['labeled_fraction'] * 100,
             self.config['mode']
         )
-        self.results_dir = f'./results/{config["dataset"]["name"]}/{date}/'
+        self.results_dir = f'./results/{config["dataset"]["name"]}/{date}-{random.randint(0, 1000)}/'
         if not osp.isdir(self.results_dir):
             os.makedirs(self.results_dir)
         self.logger.info(f'Results saved to "{self.results_dir}"')
@@ -70,6 +71,8 @@ class Trainer():
                 self.logger.info(f'Current best: Run {best_run} | R@1: {best_recall_at_1:.2f}')
                 self.logger.info(f'Search run: {run}/{num_runs}')
                 self.sample_hypers()
+            
+            self.config['gnn']['kclosest_edges'] = self.config['training']['num_classes_iter']
 
             self.logger.info(f'Config:\n{json.dumps(self.config, indent=4)}')
 
@@ -77,6 +80,7 @@ class Trainer():
 
             # ResNet
             num_classes = self.config['dataset']['train_classes']
+            if not self.config['resnet']['new']:
                 self.resnet, embed_dim = load_resnet50(
                     num_classes=num_classes,
                     pretrained_path=self.config['resnet']['pretrained_path'],
@@ -84,10 +88,34 @@ class Trainer():
                     neck=self.config['resnet']['bottleneck'],
                     mixedpoolweight=self.config['resnet']['mixedpoolweight']
                 )
+                if self.config['resnet']['bn_freeze']:
+                    for m in self.resnet.modules():
+                        if isinstance(m, nn.BatchNorm2d):
+                            m.eval()
+                            m.weight.requires_grad_(False)
+                            m.bias.requires_grad_(False)
+            else:
+                embed_dim = 512
+                self.resnet = Resnet50(
+                    embed_dim,
+                    num_classes,
+                    pretrained=True,
+                    is_norm=self.config['resnet']['l2_norm'],
+                    bn_freeze=self.config['resnet']['bn_freeze'],
+                )
+                self.logger.info(f'Using new resnet implementation')
+            
             if torch.cuda.device_count() > 1:
                 self.logger.info(f'Using {torch.cuda.device_count()} GPUs')
                 self.resnet = nn.parallel.DataParallel(self.resnet)
+                self.config['training']['gpu_id'] = -1
+            else:
+                self.config['training']['gpu_id'] = 0
             self.resnet = self.resnet.to(self.device)
+            
+            if self.config['resnet']['new'] and self.config['resnet']['pretrained_path'] not in ['', 'no']:
+                self.resnet.load_state_dict(torch.load(self.config['resnet']['pretrained_path']))
+            
             self.logger.info(f'Loaded resnet50 with embedding dim {embed_dim}.')
 
             params = self.resnet.parameters()
@@ -120,11 +148,22 @@ class Trainer():
                 loss_fn_gnn = nn.CrossEntropyLoss(reduction='none')
 
             # Optimizer
+            if self.config['training']['optimizer'].lower() == 'radam':
                 self.optimizer = RAdam(
                     params,
                     lr=self.config['training']['lr'],
                     weight_decay=self.config['training']['weight_decay']
                 )
+            elif self.config['training']['optimizer'].lower() == 'adamw':
+                self.optimizer = torch.optim.AdamW(
+                    params,
+                    lr=self.config['training']['lr'],
+                    weight_decay=self.config['training']['weight_decay']
+                )
+            else:
+                raise NotImplementedError
+            if self.config['training']['new_schedule']:
+                self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.5, verbose=True)
 
             # Labeled Loss Function
             if self.config['training']['loss_lb'] == 'lsce':
@@ -209,12 +248,39 @@ class Trainer():
         best_epoch = -1
         best_recall_at_1 = 0.0
 
-        for epoch in range(1, self.config['training']['epochs'] + 1):
-            self.logger.info(f'EPOCH {epoch}/{self.config["training"]["epochs"]}')
+        for epoch in range(self.config['training']['epochs']):
+            self.logger.info(f'EPOCH {epoch+1}/{self.config["training"]["epochs"]}')
             start = time.time()
 
-                if epoch == 30 or epoch == 50:
+            #self.resnet.train()
+            #self.gnn.train()
+            if self.config['resnet']['bn_freeze']:
+                if self.config['resnet']['new']:
+                    modules = self.resnet.model.modules() if self.config['training']['gpu_id'] != -1 else self.resnet.module.model.modules()
+                else:
+                    modules = self.resnet.modules()
+                for m in modules: 
+                    if isinstance(m, nn.BatchNorm2d):
+                        m.eval()
+
+            if not self.config['training']['new_schedule']:
+                if epoch == 29 or epoch == 49:
                     self.reduce_lr()
+
+            if self.config['training']['warmup'] > 0:
+                if self.config['training']['gpu_id'] != -1:
+                    unfreeze_model_param = list(self.resnet.model.embedding.parameters()) + list(self.resnet.model.fc2.parameters())
+                else:
+                    unfreeze_model_param = list(self.resnet.module.model.embedding.parameters()) + list(self.resnet.model.fc2.parameters())
+
+                if epoch == 0:
+                    self.logger.info('Freezing layers for warmup')
+                    for param in list(set(self.resnet.parameters()).difference(set(unfreeze_model_param))):
+                        param.requires_grad = False
+                if epoch == self.config['training']['warmup']:
+                    self.logger.info('Unfreezing layers from warmup')
+                    for param in list(set(self.resnet.parameters()).difference(set(unfreeze_model_param))):
+                        param.requires_grad = True
 
             if self.labeled_only:
                 self.train_epoch_without_ulb(
@@ -228,6 +294,10 @@ class Trainer():
                     loss_fn_ulb,
                     gnn_loss_fn
                 )
+
+            if self.config['training']['new_schedule']:
+                self.scheduler.step()
+
             eval_start = time.time()
             with torch.no_grad():
                 recalls, nmi = self.evaluator.evaluate(
@@ -236,11 +306,11 @@ class Trainer():
                     dataroot=self.config['dataset']['name'],
                     num_classes=self.config['dataset']['train_classes']
                 )
-                scores.append((epoch, recalls, nmi))
+                scores.append((epoch + 1, recalls, nmi))
 
                 if recalls[0] > best_recall_at_1:
                     best_recall_at_1 = recalls[0]
-                    best_epoch = epoch
+                    best_epoch = epoch + 1
                     torch.save(
                         self.resnet.state_dict(),
                         osp.join(self.results_dir, self.filename)
@@ -370,7 +440,7 @@ class Trainer():
                         #loss_proxies = F.cross_entropy(preds_proxies[classes], classes)
                         #loss += loss_proxies
 
-                    if first_batch:
+                    if first_batch and self.config['mode'] != 'hyper':
                         self.logger.info(f'ResNet lb : {loss_lb:.2f}')
                         self.logger.info(f'ResNet ulb: {self.config["training"]["loss_ulb_weight"] * loss_ulb:.2f}')
                         self.logger.info(f'GNN       : {loss_gnn:.2f}')
@@ -515,16 +585,16 @@ class Trainer():
             'epochs': 40,
             'lr': 10 ** random.uniform(-5, -3),
             'lr_gnn': 10 ** random.uniform(-5, -3),
-            'weight_decay': 10 ** random.uniform(-15, -6),
+            'weight_decay': 10 ** random.uniform(-10, -4),
             'num_classes_iter': num_classes_iter,
             'num_elements_class': num_elements_class,
             'loss_lb': random.choice(['ce', 'lsce']),
-            'loss_lb_temp': random.choice([ 1.0, random.random()]),
-            #'loss_ulb_weight': random.choice([1, 2, 5]),
-            #'loss_ulb_threshold': random.choice([0.8, 0.85, 0.9]),
-            #'loss_ulb_gnn_threshold': random.choice([0.8, 0.85, 0.9]),
-            #'loss_proxy': random.choice(['l2', False]),
-            #'loss_proxy_weight': random.choice([1, 2, 5])
+            'loss_lb_temp': random.choice([1.0, random.random()]),
+            'loss_ulb_weight': random.choice([1, 2, 5, 10]),
+            'loss_ulb_threshold': random.choice([0.7, 0.75, 0.8, 0.85, 0.9, 0.95]),
+            'loss_ulb_gnn_threshold': random.choice([0.7, 0.75, 0.8, 0.85, 0.9, 0.95]),
+            'loss_proxy_weight': random.choice([1, 2, 5, 10]),
+            'ulb_batch_size_factor': random.choice([1, 2, 3, 4, 5, 6, 7]),
         }
         self.config['training'].update(train_config)
 
@@ -533,10 +603,10 @@ class Trainer():
             'randaugment_magnitude': random.randint(5, 15),
             'random_erasing': random.choice([True, False]),
         }
-        self.config['dataset'].update(dataset_config)
+        #self.config['dataset'].update(dataset_config)
 
         gnn_config = {
-            'num_heads': random.choice([1, 2, 4, 6]),
+            'num_heads': random.choice([2, 4, 6]),
             #'add_mlp': random.choice([True, False]),
             #'gnn_conv': random.choice(['GAT', 'GAT', 'MDP']),
             #'gnn_fc': random.choice([True, False]),
@@ -545,7 +615,8 @@ class Trainer():
         self.config['gnn'].update(gnn_config)
 
         resnet_config = {
-            'mixedpoolweight': random.choice([1.0, 0.7, 0.6, 0.5, 0.4, 0.3]),
+            'mixedpoolweight': random.choice([1.0, 0.5, -1.0]),
+            #'bn_freeze': random.choice([True, False]),
         }
         self.config['resnet'].update(resnet_config)
 

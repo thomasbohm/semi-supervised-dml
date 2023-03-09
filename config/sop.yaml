@@ -1,11 +1,12 @@
 mode: "train"
 
-model: "backbone"
+model: "backbone_gnn"
 
 resnet:
   pretrained_path: "no"
   reduction: 4
   bottleneck: False
+  mixedpoolweight: 1.0
 
 gnn:
   pretrained_path: "no"
@@ -17,35 +18,35 @@ gnn:
   gnn_fc: False
   reduction_layer: False
   batch_proxies: False
-  kclosest_edges: 0
+  kclosest_edges: 20
 
 dataset:
   path: "data/Stanford_Online_Products"
   name: "SOP"
   train_classes: 11318
-  labeled_fraction: 0.1
+  labeled_fraction: 1.0
   transform_lb_strong: False
   transform_ulb_strong: "randaugment"
   random_erasing: False
-  randaugment_num_ops: 2
+  randaugment_num_ops: 4
   randaugment_magnitude: 9
   num_workers: 4
 
 training:
-  epochs: 20
-  lr: 0.0001
-  lr_gnn: 0.0001
-  weight_decay: 0.000006
-  num_classes_iter: 15
-  num_elements_class: 6
+  epochs: 70
+  lr: 0.00032866392149250967
+  lr_gnn: 0.00032866392149250967
+  weight_decay: 2.6448990400370304e-12
+  num_classes_iter: 20
+  num_elements_class: 3
   loss_lb: "ce"
-  loss_lb_temp: 0.11
-  loss_ulb: ""
-  loss_ulb_weight: 1
+  loss_lb_temp: 0.729014226278502
+  loss_ulb: "ce_thresh"
+  loss_ulb_weight: 5
   loss_ulb_warmup: 0
-  loss_ulb_temp: 0.11
-  loss_ulb_threshold: 0.8
+  loss_ulb_temp: 1
+  loss_ulb_threshold: 0.9
   loss_ulb_gnn_threshold: 0.9
-  loss_proxy: False
+  loss_proxy: "l2"
   loss_proxy_weight: 1
   ulb_batch_size_factor: 7

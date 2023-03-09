@@ -1,51 +1,60 @@
-mode: "hyper"
+mode: "train"
 
-model: "backbone"
+model: "backbone_gnn"
 
 resnet:
   pretrained_path: "no"
   reduction: 4
   bottleneck: False
+  mixedpoolweight: 1.0
+
+  new: False
+  bn_freeze: False
+  l2_norm: False
 
 gnn:
   pretrained_path: "no"
   num_layers: 1
-  num_heads: 1
+  num_heads: 4
   num_proxies: 98
   add_mlp: False
-  gnn_conv: "GAT"
+  gnn_conv: "mlp2"
   gnn_fc: False
   reduction_layer: False
   batch_proxies: False
-  kclosest_edges: 0
+  kclosest_edges: 5
 
 dataset:
   path: "data/CARS"
   name: "CARS"
   train_classes: 98
-  labeled_fraction: 1.0
+  labeled_fraction: 0.1
   transform_lb_strong: False
   transform_ulb_strong: "randaugment"
   random_erasing: False
-  randaugment_num_ops: 2
+  randaugment_num_ops: 4
   randaugment_magnitude: 9
   num_workers: 4
 
 training:
   epochs: 70
-  lr: 0.0001
-  lr_gnn: 0.0001
-  weight_decay: 0.000006
-  num_classes_iter: 10
-  num_elements_class: 7
+  lr: 0.0006850978846166397
+  lr_gnn: 0.0006850978846166397
+  weight_decay: 2.8930463884128676e-10
+  num_classes_iter: 12
+  num_elements_class: 5
   loss_lb: "ce"
-  loss_lb_temp: 0.11
-  loss_ulb: ""
-  loss_ulb_weight: 1
+  loss_lb_temp: 0.8456641917090774
+  loss_ulb: "fixmatch"
+  loss_ulb_weight: 5
   loss_ulb_warmup: 0
-  loss_ulb_temp: 0.11
-  loss_ulb_threshold: 0.8
-  loss_ulb_gnn_threshold: 0.9
-  loss_proxy: False
+  loss_ulb_temp: 1
+  loss_ulb_threshold: 0.7
+  loss_ulb_gnn_threshold: 0.7
+  loss_proxy: "l2"
   loss_proxy_weight: 1
   ulb_batch_size_factor: 7
+
+  new_schedule: False
+  warmup: 0
+  optimizer: "radam"
