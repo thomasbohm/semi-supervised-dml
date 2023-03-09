@@ -1,11 +1,10 @@
 # Graph-based Semi-Supervised Deep Metric Learning
 
-The goal of Metric Learning is to model similarities of images, i.e. map samples to an embedding space where similar data points are close and dissimilar are far apart. Metric learning is applied to many diverse fields, e.g. to face verification, object tracking, person re-identification, or image retrieval.
+![Overview of our proxy-graph approach](overview.png)
 
-Following rencent trends in semi-supervised learning, we apply a pseudo-labeling approach to leverage unlabeled data points. We further extend our method using Graph Neural Networks to model a global context of similar classes.
+## Abstract
+Metric learning is the foundation to various vision-based tasks such as image retrieval, clustering, face verification, or person re-identification. 
 
-Work in progress. ReadMe will be updated.
+Previous research especially focused on designing sophisticated loss functions for measuring similarities. However, we propose a new approach for metric learning which uses a standard cross-entropy loss while leveraging graph neural networks. We introduce a novel graph construction method based on learnable proxy nodes which is applied at runtime for every batch of embedded samples. The graph is then fed into an attention-based GNN to refine those embeddings. Thus, all relations in a batch can be considered and since the proxies act as global learnable parameters, the model can generalize to a global context even beyond the current batch. 
 
-![Fully-connected Graph connecting similar and dissimilar samples](graph_sketch.png)
-
-Images from CARS196 dataset.
+We incorporate semi-supervised learning into our metric learning approach to achieve competitive results for image retrieval and clustering with less annotated data.
